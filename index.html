@@ -1036,6 +1036,9 @@
       </div>
     </div>
 
+    <!-- Weitere Güteparameter (pH, Leitfähigkeit, Trübung, Chlorophyll) – dynamisch -->
+    <div id="chem-extra-charts"></div>
+
     <div class="card">
       <div class="card-header">
         <div class="card-icon purple">📊</div>
@@ -2203,6 +2206,33 @@ async function initCharts(tab) {
     const ser = _niz?.series;
     drawNizSeries('o2Chart', 'card-o2chart', 'o2chart-sub', ser, 'o2', 'mg/l', '#16a34a', { min: 0 });
     drawNizSeries('tempChart', 'card-tempchart', 'tempchart-sub', ser, 'temp', '°C', '#0284c7', {});
+
+    // Weitere Parameter dynamisch (nur wenn die Station sie führt)
+    const cont = document.getElementById('chem-extra-charts');
+    if (cont) {
+      cont.innerHTML = '';
+      const extra = [
+        ['pH', 'pH-Wert', '', '#a855f7'],
+        ['lf', 'Leitfähigkeit', 'µS/cm', '#f59e0b'],
+        ['tr', 'Trübung', 'FNU', '#78716c'],
+        ['chl', 'Chlorophyll-a', 'µg/l', '#0d9488'],
+      ];
+      for (const [key, label, unit, color] of extra) {
+        const data = ser?.data?.[key];
+        if (!Array.isArray(data) || !data.some(v => v != null)) continue;
+        const cardId = `card-${key}chart`, canvasId = `${key}Chart`, subId = `${key}chart-sub`;
+        cont.insertAdjacentHTML('beforeend',
+          `<div class="card" id="${cardId}">
+             <div class="card-header"><div class="card-icon purple">📈</div>
+               <div><div class="card-title">${label} · letzte 7 Tage</div>
+               <div class="card-sub" id="${subId}">${label}${unit ? ' (' + unit + ')' : ''}</div></div>
+             </div>
+             <div class="card-body"><div class="chart-wrap"><canvas id="${canvasId}"></canvas></div></div>
+             <div class="card-footer">Datenquelle: NIZ Baden-Württemberg / LUBW</div>
+           </div>`);
+        drawNizSeries(canvasId, cardId, subId, ser, key, unit, color, key === 'pH' ? {} : { min: 0 });
+      }
+    }
   }
 }
 
@@ -2221,7 +2251,8 @@ function drawNizSeries(canvasId, cardId, subId, series, key, unit, color, yOpts)
   const sub = document.getElementById(subId);
   if (sub && valid.length) {
     const cur = valid[valid.length - 1], min = Math.min(...valid), max = Math.max(...valid);
-    sub.textContent = `aktuell ${cur} ${unit} · Min ${min} · Max ${max} (7 Tage)`;
+    const u = unit ? ' ' + unit : '';
+    sub.textContent = `aktuell ${cur}${u} · Min ${min} · Max ${max} (7 Tage)`;
   }
   const el = document.getElementById(canvasId); if (!el) return;
   const ex = Chart.getChart(el); if (ex) ex.destroy();
