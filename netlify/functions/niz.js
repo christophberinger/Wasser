@@ -35,20 +35,34 @@ export async function handler(event) {
     const stations = await getList();
     if (!stations.length) throw new Error('NIZ-Stationsliste leer');
 
-    const nearest = stations
+    const ranked = stations
       .map(s => ({ ...s, distKm: Math.round(haversine(lat, lon, s.lat, s.lon) * 10) / 10 }))
       .filter(s => s.distKm <= radiusKm)
-      .sort((a, b) => a.distKm - b.distKm)[0];
+      .sort((a, b) => a.distKm - b.distKm);
 
-    if (!nearest) {
+    if (!ranked.length) {
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, station: null, params: [] }) };
     }
 
-    const detail = await fetchStation(nearest.id);
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...detail, station: { ...detail.station, distKm: nearest.distKm } }) };
+    const picked = await pickStation(ranked);
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...picked.detail, station: { ...picked.detail.station, distKm: picked.cand.distKm } }) };
   } catch (err) {
     return { statusCode: 502, headers, body: JSON.stringify({ ok: false, error: err.message }) };
   }
+}
+
+// Für die Gewässergüte die nächste VOLLSTÄNDIGE Gütemessstation (mit O₂) bevorzugen.
+// Viele NIZ-Stationen messen nur Wassertemperatur – die nächste davon wäre wenig
+// aussagekräftig. Daher die nächsten Kandidaten prüfen und die nächstgelegene mit
+// O₂ wählen; sonst auf die nächste (Temperatur-)Station zurückfallen.
+const hasO2 = d => !!d?.params?.some(p => p.key === 'o2');
+async function pickStation(ranked) {
+  const first = await fetchStation(ranked[0].id);
+  if (hasO2(first) || ranked.length === 1) return { cand: ranked[0], detail: first };
+  const rest = ranked.slice(1, 12);
+  const details = await Promise.all(rest.map(c => fetchStation(c.id).then(d => ({ c, d })).catch(() => null)));
+  const o2hit = details.find(x => x && hasO2(x.d)); // nächste mit O₂ (Reihenfolge = Distanz)
+  return o2hit ? { cand: o2hit.c, detail: o2hit.d } : { cand: ranked[0], detail: first };
 }
 
 async function getList() {

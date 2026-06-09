@@ -1935,6 +1935,7 @@ function renderChemie(d) {
     return;
   }
   const s = d.station;
+  const onlyTemp = !d.params.some(p => p.key === 'o2');
   if (sub) sub.textContent = `${s.gewaesser || s.name}${s.distKm != null ? ' · ' + s.distKm + ' km' : ''} · Stand ${s.ts || '–'}`;
   if (body) body.innerHTML = d.params.map(p => {
     const rng = CHEM_RANGE[p.key];
@@ -1954,7 +1955,9 @@ function renderChemie(d) {
       <div class="chem-val">${escapeHtml(p.value)}${unit}</div>
       <div class="chem-status">${badge}</div>
     </div>`;
-  }).join('');
+  }).join('') + (onlyTemp
+    ? `<p style="font-size:12px;color:var(--gray-500);margin-top:10px">Diese Messstation erfasst nur die Wassertemperatur. Die nächste vollständige Gütemessstation (O₂, pH, Leitfähigkeit, Trübung) liegt außerhalb des ${_radius}-km-Umkreises – ggf. Radius vergrößern.</p>`
+    : '');
 }
 
 // Sauerstoff-Bewertung (mg/l): Leitparameter für Gewässergüte / Fischverträglichkeit.
