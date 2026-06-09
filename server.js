@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3001;
 // Netlify Functions als ES-Module importieren
 const { handler: pegelHandler } = await import('./netlify/functions/pegel.js');
 const { handler: dwdHandler }   = await import('./netlify/functions/dwd.js');
+const { handler: nizHandler }   = await import('./netlify/functions/niz.js');
 
 const MIME = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
@@ -47,6 +48,11 @@ http.createServer(async (req, res) => {
   }
   if (p === '/.netlify/functions/dwd' || p === '/api/dwd') {
     try { sendResult(res, await dwdHandler(netlifyEvent(req, url))); }
+    catch(e) { res.writeHead(500); res.end(JSON.stringify({ ok: false, error: e.message })); }
+    return;
+  }
+  if (p === '/.netlify/functions/niz' || p === '/api/niz') {
+    try { sendResult(res, await nizHandler(netlifyEvent(req, url))); }
     catch(e) { res.writeHead(500); res.end(JSON.stringify({ ok: false, error: e.message })); }
     return;
   }

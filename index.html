@@ -985,7 +985,7 @@
   <div class="panel" id="panel-chemie">
     <div class="info-box">
       <span>🧪</span>
-      <span>Für Fließgewässer gibt es in BW keine offene, standortbezogene Echtzeit-Chemie-API. Gezeigt wird der amtliche <strong>WRRL-Zustand</strong> des nächstgelegenen Wasserkörpers (Bewertung 2021) sowie Verweise auf die laufenden LUBW-/NIZ-Messdaten.</span>
+      <span>Tagesaktuelle Güteparameter der nächstgelegenen Fließgewässer-Messstation (<strong>NIZ Baden-Württemberg</strong> / LUBW). Wassertemperatur an allen Stationen; O₂, pH, Leitfähigkeit und Trübung an den kontinuierlichen Gütemessstationen.</span>
     </div>
 
     <div class="card">
@@ -1000,7 +1000,7 @@
         <p style="font-size:13px;color:var(--gray-500)">Bitte einen Ort suchen.</p>
       </div>
       <div class="card-footer">
-        WRRL-Zustand: © BfG / LAWA Chemiekarten 2021 · <a href="https://geoportal.bafg.de" target="_blank">geoportal.bafg.de</a>
+        Datenquelle: NIZ Baden-Württemberg / <a href="https://www.lubw.baden-wuerttemberg.de" target="_blank">LUBW</a> · <a href="https://niz.baden-wuerttemberg.de/oberflaechengewaesser/gueteparameter" target="_blank">niz.baden-wuerttemberg.de</a>
       </div>
     </div>
 
@@ -1870,12 +1870,44 @@ function rainTrigger(s6, s24, s72) {
   return { cls: 'gruen', label: 'kein Alarm' };
 }
 
-// ── RENDER: CHEMIE / WRRL-ZUSTAND (best effort über Proxy) ───────────────────
+// ── RENDER: CHEMIE / GEWÄSSERGÜTE (echte Werte via NIZ-Proxy) ────────────────
+// Referenz-Spannweiten je Parameter für die Balkenanzeige (keine amtl. Bewertung).
+const CHEM_RANGE = { temp: [0, 30], o2: [0, 14], o2s: [0, 130], pH: [4, 10], lf: [0, 1500], tr: [0, 50] };
+const CHEM_COLOR = { temp: '#0284c7', o2: '#16a34a', o2s: '#16a34a', pH: '#a855f7', lf: '#f59e0b', tr: '#78716c' };
+
 async function renderChemie(loc) {
   const sub = document.getElementById('chemie-sub');
   const body = document.getElementById('chemie-body');
-  if (sub) sub.textContent = `Nächster Wasserkörper ${prettyName()}`;
-  if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Für Fließgewässer in Baden-Württemberg liegt keine offene, standortbezogene Echtzeit-Chemie-API vor. Tagesaktuelle Güteparameter (O₂, Temperatur, pH, Leitfähigkeit, NH₄, NO₃) sind über die unten verlinkten Fachportale (NIZ BW, LUBW UDO) abrufbar.</p>';
+  if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Güteparameter werden geladen…</p>';
+  try {
+    const r = await fetch(`${proxyUrl('niz')}?lat=${loc.lat}&lon=${loc.lon}&radius=${_radius}`);
+    const d = await r.json();
+    if (!d.ok || !d.station || !d.params?.length) {
+      if (sub) sub.textContent = `Keine Gütemessstation im ${_radius}-km-Umkreis`;
+      if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Im gewählten Umkreis liegt keine NIZ-Gütemessstation. Radius vergrößern oder Fachportale (unten) nutzen.</p>';
+      return;
+    }
+    const s = d.station;
+    if (sub) sub.textContent = `${s.gewaesser || s.name}${s.distKm != null ? ' · ' + s.distKm + ' km' : ''} · Stand ${s.ts || '–'}`;
+    if (body) body.innerHTML = d.params.map(p => {
+      const rng = CHEM_RANGE[p.key];
+      let pct = 50;
+      if (rng && p.valueNum != null) pct = Math.max(4, Math.min(100, ((p.valueNum - rng[0]) / (rng[1] - rng[0])) * 100));
+      const color = CHEM_COLOR[p.key] || '#64748b';
+      const unit = p.unit ? ` <span style="color:var(--gray-400);font-size:11px">${escapeHtml(p.unit)}</span>` : '';
+      const avg = p.dayAvg != null ? `<span style="font-size:11px;color:#94a3b8">Ø Vortag ${escapeHtml(String(p.dayAvg))}</span>` : '';
+      return `<div class="chem-row">
+        <div class="chem-name">${escapeHtml(p.label)}</div>
+        <div class="chem-bar-wrap"><div class="chem-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="chem-val">${escapeHtml(p.value)}${unit}</div>
+        <div class="chem-status">${avg}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.warn('NIZ:', e);
+    if (sub) sub.textContent = 'Gütedaten nicht verfügbar';
+    if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Gütedaten derzeit nicht abrufbar. Bitte Fachportale (unten) nutzen.</p>';
+  }
 }
 
 // ── GESAMT-AMPEL (Teilindikatoren T1, T2, T4, T5 nach techn. Konzept) ─────────
