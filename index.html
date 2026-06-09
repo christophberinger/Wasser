@@ -1478,6 +1478,7 @@ let _currentLat = 48.93, _currentLon = 8.96;
 let _radius = 20, _locName = '';
 let _pegelStations = [];
 let _dwd = null;
+let _niz = null;
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1512,20 +1513,21 @@ async function search() {
       showToast('Hinweis: Ort liegt außerhalb Baden-Württembergs – Datenlage ggf. unvollständig.', 'info');
 
     // Alle Quellen parallel laden (einzelne Fehler isolieren)
-    const [lakes, pegel, dwd] = await Promise.all([
+    const [lakes, pegel, dwd, niz] = await Promise.all([
       fetchBadegewaesser(loc.lat, loc.lon, radius).catch(e => { console.warn('Bade:', e); return []; }),
       loadPegelLive(loc.lat, loc.lon, radius),
       loadDWDLive(loc.lat, loc.lon),
+      loadNiz(loc.lat, loc.lon, radius),
     ]);
-    _currentLakes = lakes; _pegelStations = pegel; _dwd = dwd;
+    _currentLakes = lakes; _pegelStations = pegel; _dwd = dwd; _niz = niz;
 
     renderBadegewaesser(lakes, radius);
     renderPegelTable(pegel, radius);
     renderDWDStats(dwd);
-    renderChemie(loc);
+    renderChemie(niz);
     if (_map) { updateMapLakes(lakes); updateMapPegel(pegel); }
     updateOverviewStats(pegel, dwd);
-    updateAmpel(lakes, pegel, dwd, radius);
+    updateAmpel(lakes, pegel, dwd, niz, radius);
     updateFooterStand();
 
     // aktiven Tab neu zeichnen (Charts hängen von frischen Daten ab)
@@ -1769,6 +1771,15 @@ async function loadDWDLive(lat, lon) {
   } catch (e) { console.warn('DWD:', e); return null; }
 }
 
+// NIZ-Gewässergüte (nächste Gütemessstation) über eigenen Proxy.
+async function loadNiz(lat, lon, radiusKm) {
+  try {
+    const r = await fetch(`${proxyUrl('niz')}?lat=${lat}&lon=${lon}&radius=${radiusKm}`);
+    if (!r.ok) throw new Error('NIZ ' + r.status);
+    return await r.json();
+  } catch (e) { console.warn('NIZ:', e); return null; }
+}
+
 // PEGELONLINE (WSV): nächste Bundeswasserstraßen-Pegel mit W-Zeitreihe (CORS-fähig).
 async function pegelonlineNearby(lat, lon, radiusKm, limit = 2) {
   try {
@@ -1875,43 +1886,57 @@ function rainTrigger(s6, s24, s72) {
 const CHEM_RANGE = { temp: [0, 30], o2: [0, 14], o2s: [0, 130], pH: [4, 10], lf: [0, 1500], tr: [0, 50] };
 const CHEM_COLOR = { temp: '#0284c7', o2: '#16a34a', o2s: '#16a34a', pH: '#a855f7', lf: '#f59e0b', tr: '#78716c' };
 
-async function renderChemie(loc) {
+function renderChemie(d) {
   const sub = document.getElementById('chemie-sub');
   const body = document.getElementById('chemie-body');
-  if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Güteparameter werden geladen…</p>';
-  try {
-    const r = await fetch(`${proxyUrl('niz')}?lat=${loc.lat}&lon=${loc.lon}&radius=${_radius}`);
-    const d = await r.json();
-    if (!d.ok || !d.station || !d.params?.length) {
-      if (sub) sub.textContent = `Keine Gütemessstation im ${_radius}-km-Umkreis`;
-      if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Im gewählten Umkreis liegt keine NIZ-Gütemessstation. Radius vergrößern oder Fachportale (unten) nutzen.</p>';
-      return;
-    }
-    const s = d.station;
-    if (sub) sub.textContent = `${s.gewaesser || s.name}${s.distKm != null ? ' · ' + s.distKm + ' km' : ''} · Stand ${s.ts || '–'}`;
-    if (body) body.innerHTML = d.params.map(p => {
-      const rng = CHEM_RANGE[p.key];
-      let pct = 50;
-      if (rng && p.valueNum != null) pct = Math.max(4, Math.min(100, ((p.valueNum - rng[0]) / (rng[1] - rng[0])) * 100));
-      const color = CHEM_COLOR[p.key] || '#64748b';
-      const unit = p.unit ? ` <span style="color:var(--gray-400);font-size:11px">${escapeHtml(p.unit)}</span>` : '';
-      const avg = p.dayAvg != null ? `<span style="font-size:11px;color:#94a3b8">Ø Vortag ${escapeHtml(String(p.dayAvg))}</span>` : '';
-      return `<div class="chem-row">
-        <div class="chem-name">${escapeHtml(p.label)}</div>
-        <div class="chem-bar-wrap"><div class="chem-bar" style="width:${pct}%;background:${color}"></div></div>
-        <div class="chem-val">${escapeHtml(p.value)}${unit}</div>
-        <div class="chem-status">${avg}</div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    console.warn('NIZ:', e);
+  if (!d) {
     if (sub) sub.textContent = 'Gütedaten nicht verfügbar';
     if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Gütedaten derzeit nicht abrufbar. Bitte Fachportale (unten) nutzen.</p>';
+    return;
   }
+  if (!d.ok || !d.station || !d.params?.length) {
+    if (sub) sub.textContent = `Keine Gütemessstation im ${_radius}-km-Umkreis`;
+    if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Im gewählten Umkreis liegt keine NIZ-Gütemessstation. Radius vergrößern oder Fachportale (unten) nutzen.</p>';
+    return;
+  }
+  const s = d.station;
+  if (sub) sub.textContent = `${s.gewaesser || s.name}${s.distKm != null ? ' · ' + s.distKm + ' km' : ''} · Stand ${s.ts || '–'}`;
+  if (body) body.innerHTML = d.params.map(p => {
+    const rng = CHEM_RANGE[p.key];
+    let pct = 50;
+    if (rng && p.valueNum != null) pct = Math.max(4, Math.min(100, ((p.valueNum - rng[0]) / (rng[1] - rng[0])) * 100));
+    const color = CHEM_COLOR[p.key] || '#64748b';
+    const unit = p.unit ? ` <span style="color:var(--gray-400);font-size:11px">${escapeHtml(p.unit)}</span>` : '';
+    // Sauerstoff-Bewertung sichtbar machen (Leitparameter Gewässergüte)
+    let badge = p.dayAvg != null ? `<span style="font-size:11px;color:#94a3b8">Ø Vortag ${escapeHtml(String(p.dayAvg))}</span>` : '';
+    if (p.key === 'o2' && p.valueNum != null) {
+      const o = o2Color(p.valueNum);
+      badge = `<span class="badge ${o.cls}">${o.icon}</span>`;
+    }
+    return `<div class="chem-row">
+      <div class="chem-name">${escapeHtml(p.label)}</div>
+      <div class="chem-bar-wrap"><div class="chem-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="chem-val">${escapeHtml(p.value)}${unit}</div>
+      <div class="chem-status">${badge}</div>
+    </div>`;
+  }).join('');
+}
+
+// Sauerstoff-Bewertung (mg/l): Leitparameter für Gewässergüte / Fischverträglichkeit.
+function o2Color(mg) {
+  if (mg < 4) return { cls: 'rot', icon: '🔴', label: 'kritisch' };
+  if (mg < 6) return { cls: 'gelb', icon: '🟡', label: 'mässig' };
+  return { cls: 'gruen', icon: '🟢', label: 'gut' };
+}
+// Wassertemperatur-Bewertung (°C): hohe Temperaturen senken O₂ / stressen Fische.
+function tempColor(c) {
+  if (c > 28) return { cls: 'rot', label: 'sehr warm' };
+  if (c > 25) return { cls: 'gelb', label: 'warm' };
+  return { cls: 'gruen', label: 'unauffällig' };
 }
 
 // ── GESAMT-AMPEL (Teilindikatoren T1, T2, T4, T5 nach techn. Konzept) ─────────
-const AMPEL_WEIGHTS = { pegel: 1.5, mikro: 2.0, regen: 1.0, eu: 1.0 };
+const AMPEL_WEIGHTS = { pegel: 1.5, mikro: 2.0, chemie: 1.5, regen: 1.0, eu: 1.0 };
 const COLOR_SCORE = { gruen: 0, gelb: 1, rot: 2 };
 
 function setDot(id, cls) {
@@ -1927,7 +1952,7 @@ function euColor(q) {
   return null;
 }
 
-function updateAmpel(lakes, pegel, dwd, radiusKm) {
+function updateAmpel(lakes, pegel, dwd, niz, radiusKm) {
   // T1 Pegel: Daten vorhanden & frisch → grün, sonst grau
   let tPegel = null;
   const freshP = pegel.filter(s => s.w != null && !s.stale);
@@ -1955,8 +1980,22 @@ function updateAmpel(lakes, pegel, dwd, radiusKm) {
   }
   setDot('ind-mikro', tMikro || 'grau');
 
-  // T3 Chemie: keine Live-Quelle → grau, nicht in Aggregation
-  setDot('ind-chemie', 'grau');
+  // T3 Chemie: Sauerstoff (Leitparameter), sonst Wassertemperatur — aus NIZ
+  let tChemie = null, chemieReason = '';
+  if (niz?.ok && niz.params?.length) {
+    const o2 = niz.params.find(p => p.key === 'o2' && p.valueNum != null);
+    const temp = niz.params.find(p => p.key === 'temp' && p.valueNum != null);
+    if (o2) {
+      const o = o2Color(o2.valueNum);
+      tChemie = o.cls;
+      if (o.cls !== 'gruen') chemieReason = `${niz.station?.gewaesser || ''}: Sauerstoff ${o2.value} mg/l (${o.label})`;
+    } else if (temp) {
+      const t = tempColor(temp.valueNum);
+      tChemie = t.cls;
+      if (t.cls !== 'gruen') chemieReason = `${niz.station?.gewaesser || ''}: Wassertemperatur ${temp.value} °C (${t.label})`;
+    }
+  }
+  setDot('ind-chemie', tChemie || 'grau');
 
   // T4 Niederschlag
   let tRegen = null, regenReason = '';
@@ -1976,7 +2015,7 @@ function updateAmpel(lakes, pegel, dwd, radiusKm) {
   setDot('ind-eu', tEu || 'grau');
 
   // Aggregation
-  const inds = { pegel: tPegel, mikro: tMikro, regen: tRegen, eu: tEu };
+  const inds = { pegel: tPegel, mikro: tMikro, chemie: tChemie, regen: tRegen, eu: tEu };
   let score = 0, weight = 0, anyRed = false;
   for (const k in inds) {
     if (!inds[k]) continue;
@@ -1999,7 +2038,7 @@ function updateAmpel(lakes, pegel, dwd, radiusKm) {
 
   const reasonEl = document.getElementById('ampel-reason');
   if (reasonEl) {
-    const reasons = [mikroReason, regenReason].filter(Boolean);
+    const reasons = [mikroReason, chemieReason, regenReason].filter(Boolean);
     reasonEl.textContent = reasons.length ? reasons.join(' · ')
       : (cls === 'gruen' ? 'Alle verfügbaren Indikatoren unauffällig.' : 'Bewertung aus verfügbaren Messwerten.');
   }
