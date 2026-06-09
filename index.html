@@ -1004,6 +1004,38 @@
       </div>
     </div>
 
+    <div class="card" id="card-o2chart" style="display:none">
+      <div class="card-header">
+        <div class="card-icon green">📈</div>
+        <div>
+          <div class="card-title">Sauerstoff-Verlauf · letzte 7 Tage</div>
+          <div class="card-sub" id="o2chart-sub">Gelöster Sauerstoff (mg/l)</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="o2Chart"></canvas></div>
+      </div>
+      <div class="card-footer">
+        Richtwerte: gut ≥ 6 mg/l · mässig 4–6 · kritisch &lt; 4 mg/l &nbsp;·&nbsp; Datenquelle: NIZ BW / LUBW
+      </div>
+    </div>
+
+    <div class="card" id="card-tempchart" style="display:none">
+      <div class="card-header">
+        <div class="card-icon blue">📈</div>
+        <div>
+          <div class="card-title">Wassertemperatur-Verlauf · letzte 7 Tage</div>
+          <div class="card-sub" id="tempchart-sub">Wassertemperatur (°C)</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+      </div>
+      <div class="card-footer">
+        Datenquelle: NIZ Baden-Württemberg / LUBW
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header">
         <div class="card-icon purple">📊</div>
@@ -2166,6 +2198,45 @@ async function initCharts(tab) {
       }
     });
   }
+
+  if (tab === 'chemie') {
+    const ser = _niz?.series;
+    drawNizSeries('o2Chart', 'card-o2chart', 'o2chart-sub', ser, 'o2', 'mg/l', '#16a34a', { min: 0 });
+    drawNizSeries('tempChart', 'card-tempchart', 'tempchart-sub', ser, 'temp', '°C', '#0284c7', {});
+  }
+}
+
+// NIZ-Zeitreihe als Liniendiagramm (ein Parameter). Blendet die Karte aus, wenn keine Daten.
+function drawNizSeries(canvasId, cardId, subId, series, key, unit, color, yOpts) {
+  const card = document.getElementById(cardId);
+  const data = series?.data?.[key];
+  const hasData = Array.isArray(data) && data.some(v => v != null);
+  if (card) card.style.display = hasData ? '' : 'none';
+  if (!hasData) return;
+
+  const ts = series.ts;
+  const labels = ts.map(ms => { const d = new Date(ms); return d.getHours() === 0 ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : ''; });
+  const vals = data.map(v => (v == null ? null : v));
+  const valid = vals.filter(v => v != null);
+  const sub = document.getElementById(subId);
+  if (sub && valid.length) {
+    const cur = valid[valid.length - 1], min = Math.min(...valid), max = Math.max(...valid);
+    sub.textContent = `aktuell ${cur} ${unit} · Min ${min} · Max ${max} (7 Tage)`;
+  }
+  const el = document.getElementById(canvasId); if (!el) return;
+  const ex = Chart.getChart(el); if (ex) ex.destroy();
+  new Chart(el, {
+    type: 'line',
+    data: { labels, datasets: [{ label: unit, data: vals, borderColor: color, backgroundColor: color + '22', fill: true, tension: .35, pointRadius: 0, borderWidth: 2, spanGaps: true }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + ' ' + unit } } },
+      scales: {
+        x: { grid: { color: GC }, ticks: { color: TC, font: defaultFont, maxTicksLimit: 8 } },
+        y: { grid: { color: GC }, ticks: { color: TC, font: defaultFont, callback: v => v + ' ' + unit }, ...yOpts }
+      }
+    }
+  });
 }
 
 

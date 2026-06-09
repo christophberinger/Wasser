@@ -91,7 +91,29 @@ async function fetchStation(id) {
       lat: st.lat, lon: st.lon, ts: st['ts-format-mez'] || st['ts-format'] || '',
     },
     params,
+    series: extractSeries(d.table),
   };
+}
+
+// Zeitreihe aus der Tabellen-Ansicht: header = [Datum/Zeit, Temperatur, ...],
+// data = [[ts_ms, temp, o2, pH, lf, tr], ...] (neueste zuerst → aufsteigend sortieren).
+const COLMAP = [
+  { re: /temperatur/i, key: 'temp' }, { re: /sauerstoff/i, key: 'o2' },
+  { re: /pH/i, key: 'pH' }, { re: /leitf/i, key: 'lf' },
+  { re: /tr(ü|u)bung/i, key: 'tr' }, { re: /chlorophyll/i, key: 'chl' },
+];
+function extractSeries(table) {
+  if (!table?.header || !Array.isArray(table.data)) return null;
+  const labels = table.header.map(c => (c.label || '').replace(/<[^>]+>/g, ''));
+  const colKey = labels.map(l => (COLMAP.find(m => m.re.test(l))?.key) || null);
+  const rows = [...table.data].sort((a, b) => a[0] - b[0]);
+  const ts = rows.map(r => r[0]);
+  const data = {};
+  for (let i = 1; i < labels.length; i++) {
+    const key = colKey[i]; if (!key) continue;
+    data[key] = rows.map(r => (typeof r[i] === 'number' ? r[i] : null));
+  }
+  return { ts, data };
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
