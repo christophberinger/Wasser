@@ -1,0 +1,41 @@
+[build]
+  publish = "."
+
+[dev]
+  publish = "."
+  port = 8888
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Caching-Strategie
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=600"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Saubere URLs: /badegewaesser → /?tab=badegewaesser
+[[redirects]]
+  from = "/badegewaesser"
+  to   = "/?tab=badegewaesser"
+  status = 301
+
+[[redirects]]
+  from = "/pegel"
+  to   = "/?tab=pegel"
+  status = 301
+
+[[redirects]]
+  from = "/chemie"
+  to   = "/?tab=chemie"
+  status = 301

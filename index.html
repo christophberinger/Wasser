@@ -1,0 +1,2123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0369a1">
+<title>Wasserqualität Baden-Württemberg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --blue-50:  #eff6ff;
+    --blue-100: #dbeafe;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
+    --blue-700: #1d4ed8;
+    --sky-400:  #38bdf8;
+    --sky-500:  #0ea5e9;
+    --sky-600:  #0284c7;
+    --sky-700:  #0369a1;
+    --sky-900:  #0c4a6e;
+    --green-50: #f0fdf4;
+    --green-500:#22c55e;
+    --green-600:#16a34a;
+    --yellow-50:#fefce8;
+    --yellow-400:#facc15;
+    --yellow-500:#eab308;
+    --red-50:   #fef2f2;
+    --red-500:  #ef4444;
+    --red-600:  #dc2626;
+    --gray-50:  #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --radius-sm: 8px;
+    --radius:    12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow:    0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.05);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #f0f7ff;
+    color: var(--gray-800);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(135deg, var(--sky-700) 0%, var(--sky-900) 100%);
+    color: white;
+    padding: 16px 20px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .header-logo {
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,.18);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .header-title { flex: 1 }
+  .header-title h1 { font-size: 16px; font-weight: 700; line-height: 1.2 }
+  .header-title p  { font-size: 11px; opacity: .72; margin-top: 1px }
+  .header-btn {
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.25);
+    color: white;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .header-btn:hover { background: rgba(255,255,255,.25) }
+
+  .search-bar {
+    display: flex; gap: 8px;
+  }
+  .search-input {
+    flex: 1;
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.3);
+    color: white;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: background .15s;
+  }
+  .search-input::placeholder { color: rgba(255,255,255,.55) }
+  .search-input:focus { background: rgba(255,255,255,.22) }
+  .search-input-radius {
+    width: 90px; flex: none;
+  }
+  /* Autocomplete-Dropdown */
+  .ac-list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1200;
+    background: white; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0,0,0,.22); display: none;
+  }
+  .ac-list.open { display: block }
+  .ac-item {
+    padding: 9px 14px; font-size: 13px; color: #1f2937; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9;
+  }
+  .ac-item:last-child { border-bottom: none }
+  .ac-item:hover, .ac-item.active { background: #f0f9ff }
+  .ac-item .ac-ico { font-size: 14px; flex: none }
+  .ac-item .ac-sub { color: #94a3b8; font-size: 11px; margin-left: auto; white-space: nowrap }
+  .search-btn {
+    background: white;
+    color: var(--sky-700);
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .search-btn:hover { opacity: .88 }
+
+  /* ── MAIN ── */
+  .main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 16px 16px 100px;
+  }
+
+  /* ── AMPEL ── */
+  .ampel-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+  .ampel-bg {
+    position: absolute;
+    inset: 0;
+    opacity: .04;
+    pointer-events: none;
+  }
+  .ampel-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .ampel-circle {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .ampel-circle.gelb {
+    background: linear-gradient(135deg, #fef08a, #fbbf24);
+    box-shadow: 0 0 0 0 rgba(251,191,36,.4);
+    animation: pulse-yellow 2.5s infinite;
+  }
+  .ampel-circle.gruen {
+    background: linear-gradient(135deg, #86efac, #22c55e);
+    box-shadow: 0 4px 14px rgba(34,197,94,.3);
+  }
+  .ampel-circle.rot {
+    background: linear-gradient(135deg, #fca5a5, #ef4444);
+    box-shadow: 0 0 0 0 rgba(239,68,68,.4);
+    animation: pulse-red 2s infinite;
+  }
+  @keyframes pulse-yellow {
+    0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,.5) }
+    50%      { box-shadow: 0 0 0 12px rgba(251,191,36,0) }
+  }
+  @keyframes pulse-red {
+    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.5) }
+    50%      { box-shadow: 0 0 0 12px rgba(239,68,68,0) }
+  }
+  .ampel-info { flex: 1 }
+  .ampel-status-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--gray-500);
+    margin-bottom: 3px;
+  }
+  .ampel-status-text {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .ampel-status-text.gelb { color: #b45309 }
+  .ampel-status-text.gruen { color: var(--green-600) }
+  .ampel-status-text.rot { color: var(--red-600) }
+  .ampel-reason {
+    font-size: 13px;
+    color: var(--gray-600);
+    line-height: 1.4;
+  }
+  .ampel-indicators {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .ampel-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-700);
+  }
+  .ind-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ind-dot.gruen  { background: var(--green-500) }
+  .ind-dot.gelb   { background: var(--yellow-500) }
+  .ind-dot.rot    { background: var(--red-500) }
+  .ind-dot.grau   { background: var(--gray-400) }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .tabs::-webkit-scrollbar { display: none }
+  .tab-btn {
+    flex-shrink: 0;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-600);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tab-btn:hover { border-color: var(--sky-400); color: var(--sky-600) }
+  .tab-btn.active {
+    color: white;
+    box-shadow: 0 2px 8px rgba(2,132,199,.35);
+  }
+  /* Fluss-Gruppe: blaues Aktiv */
+  .tab-group-fluss .tab-btn.active {
+    background: var(--sky-600);
+    border-color: var(--sky-600);
+  }
+  /* Seen-Gruppe: grünes Aktiv */
+  .tab-group-seen .tab-btn.active {
+    background: var(--green-600);
+    border-color: var(--green-600);
+    box-shadow: 0 2px 8px rgba(22,163,74,.35);
+  }
+  /* Übersicht: blaues Aktiv (Default) */
+  #btn-uebersicht.active {
+    background: var(--sky-600);
+    border-color: var(--sky-600);
+  }
+  .tab-group {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .tab-group-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .tab-group-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+  .tab-group-fluss .tab-group-label { color: var(--sky-600) }
+  .tab-group-seen  .tab-group-label { color: var(--green-600) }
+  .tab-group-fluss {
+    background: rgba(2,132,199,.06);
+    border: 1px solid rgba(2,132,199,.18);
+    border-radius: 12px;
+    padding: 4px 5px;
+  }
+  .tab-group-seen {
+    background: rgba(22,163,74,.06);
+    border: 1px solid rgba(22,163,74,.18);
+    border-radius: 12px;
+    padding: 4px 5px;
+  }
+  .tab-group-fluss .tab-btn,
+  .tab-group-seen  .tab-btn {
+    border-color: transparent;
+    background: transparent;
+  }
+  .tab-group-fluss .tab-btn:hover { background: rgba(2,132,199,.1); border-color: transparent }
+  .tab-group-seen  .tab-btn:hover { background: rgba(22,163,74,.1); border-color: transparent }
+  .tab-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--gray-200);
+    flex-shrink: 0;
+    margin: 0 2px;
+  }
+
+  /* ── PANEL ── */
+  .panel { display: none }
+  .panel.active { display: block }
+
+  /* ── CARDS ── */
+  .card {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-100);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .card-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .card-icon.blue   { background: #dbeafe; }
+  .card-icon.green  { background: #dcfce7; }
+  .card-icon.orange { background: #ffedd5; }
+  .card-icon.purple { background: #f3e8ff; }
+  .card-icon.sky    { background: #e0f2fe; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--gray-800) }
+  .card-sub   { font-size: 11px; color: var(--gray-500); margin-top: 1px }
+  .card-body  { padding: 16px }
+  .card-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--gray-100);
+    font-size: 11px;
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── MAP ── */
+  #map {
+    height: 220px;
+    border-radius: 0;
+    width: 100%;
+  }
+  @media(min-width:640px) { #map { height: 300px } }
+
+  /* ── STAT GRID ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  @media(min-width:540px) {
+    .stat-grid { grid-template-columns: repeat(4,1fr) }
+  }
+  .stat-card {
+    background: white;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    padding: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .stat-label { font-size: 11px; color: var(--gray-500); font-weight: 500; margin-bottom: 4px }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--gray-900); line-height: 1.1 }
+  .stat-unit  { font-size: 12px; color: var(--gray-500); font-weight: 400 }
+  .stat-trend {
+    font-size: 11px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .stat-trend.up   { color: var(--red-600) }
+  .stat-trend.down { color: var(--green-600) }
+  .stat-trend.flat { color: var(--gray-500) }
+  .stat-time { font-size: 10px; color: var(--gray-400); margin-top: 6px }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px }
+  .data-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 0 12px 10px;
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 10px 12px;
+    border-top: 1px solid var(--gray-100);
+    color: var(--gray-700);
+    vertical-align: middle;
+  }
+  .data-table tr:hover td { background: var(--gray-50) }
+  .data-table td:first-child { font-weight: 500; color: var(--gray-900) }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.gruen  { background: #dcfce7; color: #15803d }
+  .badge.gelb   { background: #fef9c3; color: #854d0e }
+  .badge.rot    { background: #fee2e2; color: #991b1b }
+  .badge.grau   { background: var(--gray-100); color: var(--gray-600) }
+
+  /* ── CHEM BARS ── */
+  .chem-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 90px 52px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .chem-row:last-child { border-bottom: none }
+  .chem-name { font-size: 13px; font-weight: 600; color: var(--gray-800) }
+  .chem-bar-wrap {
+    height: 7px;
+    background: var(--gray-200);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .chem-bar { height: 100%; border-radius: 10px; transition: width .6s ease }
+  .chem-val { font-size: 13px; color: var(--gray-700); text-align: right; white-space: nowrap }
+  .chem-status { text-align: right }
+
+  /* ── CHART ── */
+  .chart-wrap { position: relative; height: 200px }
+  @media(min-width:540px) { .chart-wrap { height: 240px } }
+
+  /* ── PEGEL GAUGE ── */
+  .gauge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .gauge-svg-wrap { position: relative; width: 120px; height: 80px; flex-shrink: 0 }
+
+  /* ── INFO BOXES ── */
+  .info-box {
+    background: var(--blue-50);
+    border: 1px solid var(--blue-100);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--gray-700);
+    margin-bottom: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+  .info-box.warn {
+    background: var(--yellow-50);
+    border-color: #fde68a;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--gray-800);
+    color: var(--gray-400);
+    font-size: 11px;
+    padding: 20px 16px;
+    line-height: 1.6;
+  }
+  footer a { color: var(--gray-400); text-decoration: underline }
+  footer .sources-grid {
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    gap: 6px 20px;
+    margin-bottom: 12px;
+  }
+  @media(min-width:540px) {
+    footer .sources-grid { grid-template-columns: repeat(3,1fr) }
+  }
+  footer .disclaimer {
+    border-top: 1px solid var(--gray-700);
+    padding-top: 12px;
+    margin-top: 12px;
+    color: var(--gray-500);
+  }
+
+  /* ── TIMESTAMP ── */
+  .ts {
+    font-size: 11px;
+    color: var(--gray-400);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--gray-500);
+    margin-bottom: 10px;
+  }
+
+  /* ── OVERVIEW GRID ── */
+  .overview-grid {
+    display: grid;
+    gap: 14px;
+  }
+  @media(min-width:640px) {
+    .overview-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* ── SKELETON (loading) ── */
+  .skel {
+    background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+    background-size: 200% 100%;
+    animation: skel-anim 1.5s infinite;
+    border-radius: 6px;
+  }
+  @keyframes skel-anim {
+    0% { background-position: 200% 0 }
+    100% { background-position: -200% 0 }
+  }
+
+  /* ── MOBILE NAV ── */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+    display: flex;
+    align-items: stretch;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 200;
+    box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+  }
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 9.5px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: color .15s;
+    white-space: nowrap;
+  }
+  .mobile-nav-btn .nav-icon { font-size: 19px; line-height: 1 }
+  .mnb-uebersicht.active { color: var(--sky-600) }
+  .mnb-fluss.active       { color: var(--sky-700) }
+  .mnb-seen.active        { color: var(--green-600) }
+  .mobile-nav-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    border-left: 1px solid var(--gray-100);
+  }
+  .mobile-nav-grouplabel {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    text-align: center;
+    padding: 4px 6px 0;
+  }
+  .mobile-nav-fluss .mobile-nav-grouplabel { color: var(--sky-600) }
+  .mobile-nav-seen  .mobile-nav-grouplabel { color: var(--green-600) }
+  .mobile-nav-groupbtns {
+    display: flex;
+    flex: 1;
+  }
+  .mobile-nav-fluss {
+    background: rgba(2,132,199,.04);
+  }
+  .mobile-nav-seen {
+    background: rgba(22,163,74,.04);
+    border-left: 1px solid var(--gray-100);
+  }
+  @media(min-width:768px) { .mobile-nav { display: none } }
+
+  .update-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--green-50);
+    color: var(--green-600);
+    border: 1px solid #bbf7d0;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .update-dot {
+    width: 6px; height: 6px;
+    background: var(--green-500);
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink {
+    0%,100% { opacity: 1 } 50% { opacity: .3 }
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: var(--gray-800);
+    color: white;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0) }
+  .toast.error { background: var(--red-600) }
+  .toast.success { background: var(--green-600) }
+  @media(min-width:768px) { .toast { bottom: 24px } }
+
+  /* ── SEARCH LOADING ── */
+  .search-btn:disabled { opacity: .6; cursor: not-allowed }
+  .loading-row td { color: var(--gray-400); font-style: italic }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div class="header-logo">🌊</div>
+    <div class="header-title">
+      <h1>Wasserqualität Baden-Württemberg</h1>
+      <p id="header-sub">Echtzeit-Dashboard für Bürgerinnen und Bürger</p>
+    </div>
+    <button class="header-btn" onclick="shareUrl()">↗ Teilen</button>
+  </div>
+  <div class="search-bar">
+    <div class="search-autowrap" style="position:relative;flex:1;min-width:0">
+      <input class="search-input" type="text" autocomplete="off" placeholder="PLZ, Stadt, Fluss oder See – z.B. 71665, Konstanz, Bodensee" id="plzInput" value="71665" style="width:100%">
+      <div id="acList" class="ac-list" role="listbox"></div>
+    </div>
+    <input class="search-input search-input-radius" type="number" placeholder="km" id="radiusInput" value="20" min="5" max="80">
+    <button class="search-btn" onclick="search()">Suchen</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- GESAMT-AMPEL -->
+  <div class="ampel-card">
+    <div class="ampel-header">
+      <div class="ampel-circle grau" id="ampel-circle">🌊</div>
+      <div class="ampel-info">
+        <div class="ampel-status-label" id="ampel-label">Gesamt-Wasserqualität</div>
+        <div class="ampel-status-text grau" id="ampel-text">Wird geladen…</div>
+        <div class="ampel-reason" id="ampel-reason">Bitte Ort suchen.</div>
+      </div>
+    </div>
+    <div class="ampel-indicators">
+      <div class="ampel-indicator">
+        <div class="ind-dot grau" id="ind-pegel"></div>Pegel
+      </div>
+      <div class="ampel-indicator">
+        <div class="ind-dot grau" id="ind-mikro"></div>Mikrobiell
+      </div>
+      <div class="ampel-indicator">
+        <div class="ind-dot grau" id="ind-chemie"></div>Chemie <span style="font-size:10px;color:var(--gray-400)">?</span>
+      </div>
+      <div class="ampel-indicator">
+        <div class="ind-dot grau" id="ind-regen"></div>Niederschlag
+      </div>
+      <div class="ampel-indicator">
+        <div class="ind-dot grau" id="ind-eu"></div>EU-Status
+      </div>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:var(--gray-500);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="update-chip"><div class="update-dot"></div>Live</div>
+      <span id="ampel-stand">Stand: –</span>
+      <span style="color:var(--gray-400)" id="ampel-badeverbot"></span>
+    </div>
+  </div>
+
+  <!-- TABS (Desktop) -->
+  <div class="tabs" id="tabBar">
+    <button class="tab-btn active" id="btn-uebersicht" onclick="setTab('uebersicht',this)">🗺️ Übersicht</button>
+    <div class="tab-divider"></div>
+    <div class="tab-group-wrap tab-group-fluss">
+      <div class="tab-group-label">Fließgewässer</div>
+      <div class="tab-group">
+        <button class="tab-btn" id="btn-pegel" onclick="setTab('pegel',this)">📊 Pegel</button>
+        <button class="tab-btn" id="btn-chemie" onclick="setTab('chemie',this)">🧪 Chemie</button>
+        <button class="tab-btn" id="btn-niederschlag" onclick="setTab('niederschlag',this)">🌧️ Niederschlag</button>
+      </div>
+    </div>
+    <div class="tab-divider"></div>
+    <div class="tab-group-wrap tab-group-seen">
+      <div class="tab-group-label">Badeseen</div>
+      <div class="tab-group">
+        <button class="tab-btn" id="btn-badegewaesser" onclick="setTab('badegewaesser',this)">🏊 Badegewässer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: ÜBERSICHT -->
+  <div class="panel active" id="panel-uebersicht">
+    <div class="card">
+      <div id="map"></div>
+      <div class="card-footer" id="map-footer">
+        🗺️ Stationen im Umkreis &nbsp;·&nbsp; <a href="https://www.openstreetmap.org" target="_blank">© OpenStreetMap</a>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label" id="ov-pegel-label">⬆ Nächster Pegel</div>
+        <div class="stat-value" id="ov-pegel-w">– <span class="stat-unit">cm</span></div>
+        <div class="stat-trend flat" id="ov-pegel-water">–</div>
+        <div class="stat-time" id="ov-pegel-time">HVZ BW</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">💧 Abfluss</div>
+        <div class="stat-value" id="ov-pegel-q">– <span class="stat-unit">m³/s</span></div>
+        <div class="stat-trend flat" id="ov-pegel-q-sub">am nächsten Pegel</div>
+        <div class="stat-time">HVZ BW</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🌧️ Niederschlag 24h</div>
+        <div class="stat-value" id="ov-regen">– <span class="stat-unit">mm</span></div>
+        <div class="stat-trend flat" id="ov-regen-sub">–</div>
+        <div class="stat-time" id="ov-regen-time">DWD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🏊 Badeseen im Umkreis</div>
+        <div class="stat-value" id="seen-count">–</div>
+        <div class="stat-trend flat" id="seen-status">–</div>
+        <div class="stat-time">LGL Badegewässerkarte BW</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon sky">🏊</div>
+        <div>
+          <div class="card-title">Nächste Badestellen</div>
+          <div class="card-sub" id="bade-overview-sub">Wird geladen…</div>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table" id="badeOverviewTable">
+          <thead>
+            <tr>
+              <th>Gewässer</th>
+              <th>km</th>
+              <th>E.coli</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="loading-row"><td colspan="4">Daten werden geladen…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer">
+        Datenquelle: LGL, <a href="https://www.lgl-bw.de" target="_blank">lgl-bw.de</a>, dl-de/by-2-0 &nbsp;·&nbsp; <a href="https://badegewaesserkarte.landbw.de" target="_blank">Offizielle Badegewässerkarte BW</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: PEGEL -->
+  <div class="panel" id="panel-pegel">
+    <div class="info-box">
+      <span>📡</span>
+      <span>Aktuelle Pegelstände der nächstgelegenen Messstationen der <strong>HVZ Baden-Württemberg</strong> (Hochwasservorhersagezentrale, ~alle 15 Min). Der 7-Tage-Verlauf stammt – wo verfügbar – von <strong>PEGELONLINE</strong> (WSV, Bundeswasserstraßen).</span>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">📊</div>
+        <div>
+          <div class="card-title">Nächste Pegel im Umkreis</div>
+          <div class="card-sub" id="pegel-list-sub">Wird geladen…</div>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div style="overflow-x:auto">
+          <table class="data-table" id="pegelTable" style="min-width:420px">
+            <thead>
+              <tr><th>Pegel</th><th>Gewässer</th><th>km</th><th>Wasserstand</th><th>Abfluss</th><th>Stand</th></tr>
+            </thead>
+            <tbody><tr class="loading-row"><td colspan="6">Daten werden geladen…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer">
+        Datenquelle: HVZ Baden-Württemberg / LUBW · <a href="https://www.hvz.baden-wuerttemberg.de" target="_blank">hvz.baden-wuerttemberg.de</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">📈</div>
+        <div>
+          <div class="card-title" id="pegelChart-title">Pegelverlauf · letzte 7 Tage</div>
+          <div class="card-sub" id="pegelChart-sub">PEGELONLINE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="pegelChart"></canvas>
+        </div>
+      </div>
+      <div class="card-footer">
+        © Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV) · <a href="https://www.pegelonline.wsv.de" target="_blank">PEGELONLINE</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">📈</div>
+        <div>
+          <div class="card-title" id="pegel2Chart-title">Pegelverlauf · Vergleichsstation</div>
+          <div class="card-sub" id="pegel2Chart-sub">PEGELONLINE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="pegel2Chart"></canvas>
+        </div>
+      </div>
+      <div class="card-footer">
+        © Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV) · <a href="https://www.pegelonline.wsv.de" target="_blank">PEGELONLINE</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: BADEGEWÄSSER -->
+  <div class="panel" id="panel-badegewaesser">
+    <div class="info-box">
+      <span>ℹ️</span>
+      <span>Bakteriologische Messungen werden in der Badesaison ca. wöchentlich bis zweiwöchentlich durchgeführt. Die EU-Grenzwerte für Binnengewässer betragen: E. coli &lt; 1000 KBE/100ml, Enterokokken &lt; 400 KBE/100ml.</span>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">🏊</div>
+        <div>
+          <div class="card-title">Badegewässer im Umkreis</div>
+          <div class="card-sub" id="bade-full-sub">Wird geladen…</div>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div style="overflow-x:auto">
+          <table class="data-table" id="badeTable" style="min-width:480px">
+            <thead>
+              <tr>
+                <th>Gewässer</th>
+                <th>km</th>
+                <th>E.coli<br><span style="font-weight:400;font-size:10px">&lt;1000</span></th>
+                <th>Entero.<br><span style="font-weight:400;font-size:10px">&lt;400</span></th>
+                <th>Temp.</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="loading-row"><td colspan="6">Daten werden geladen…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer">
+        Datenquelle: LGL, <a href="https://www.lgl-bw.de" target="_blank">lgl-bw.de</a>, dl-de/by-2-0
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">📈</div>
+        <div>
+          <div class="card-title">E. coli · aktuelle Messwerte im Umkreis</div>
+          <div class="card-sub" id="ecoli-sub">Badegewässer mit aktueller Probe</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="ecoliChart"></canvas>
+        </div>
+      </div>
+      <div class="card-footer">
+        Datenquelle: LGL, dl-de/by-2-0 &nbsp;·&nbsp; Grenzwert EU-Badegewässerrichtlinie: 1000 KBE/100ml
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: CHEMIE / GEWÄSSERGÜTE -->
+  <div class="panel" id="panel-chemie">
+    <div class="info-box">
+      <span>🧪</span>
+      <span>Für Fließgewässer gibt es in BW keine offene, standortbezogene Echtzeit-Chemie-API. Gezeigt wird der amtliche <strong>WRRL-Zustand</strong> des nächstgelegenen Wasserkörpers (Bewertung 2021) sowie Verweise auf die laufenden LUBW-/NIZ-Messdaten.</span>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">🧪</div>
+        <div>
+          <div class="card-title">Gewässergüte am Standort</div>
+          <div class="card-sub" id="chemie-sub">Wird geladen…</div>
+        </div>
+      </div>
+      <div class="card-body" id="chemie-body">
+        <p style="font-size:13px;color:var(--gray-500)">Bitte einen Ort suchen.</p>
+      </div>
+      <div class="card-footer">
+        WRRL-Zustand: © BfG / LAWA Chemiekarten 2021 · <a href="https://geoportal.bafg.de" target="_blank">geoportal.bafg.de</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">📊</div>
+        <div>
+          <div class="card-title">Laufende Messdaten (externe Quellen)</div>
+          <div class="card-sub">Tagesaktuelle Güteparameter werden direkt bei den Fachportalen bereitgestellt</div>
+        </div>
+      </div>
+      <div class="card-body" style="font-size:13px;line-height:1.7;color:var(--gray-700)">
+        <p style="margin-bottom:8px">📈 <strong>NIZ Baden-Württemberg</strong> – tagesaktuell O₂, Wassertemperatur, pH, Leitfähigkeit, Trübung an Hauptpegeln:<br><a href="https://niz.baden-wuerttemberg.de/oberflaechengewaesser/gueteparameter" target="_blank">niz.baden-wuerttemberg.de</a></p>
+        <p style="margin-bottom:8px">🗄️ <strong>LUBW UDO 4.0</strong> – Fließgewässergüte (NH₄, NO₃, PO₄, Chlorophyll), Live + Jahresarchiv, CSV-Export:<br><a href="https://udo.lubw.baden-wuerttemberg.de/public/" target="_blank">udo.lubw.baden-wuerttemberg.de</a></p>
+        <p>🗺️ <strong>LAWA-Chemiekarten (bundesweit)</strong> – WRRL-Zustand prioritärer Stoffe (PAK, Hg, Schwermetalle):<br><a href="https://geoportal.bafg.de" target="_blank">geoportal.bafg.de</a></p>
+      </div>
+      <div class="card-footer">
+        Grundlage: UIS der <a href="https://www.lubw.bwl.de" target="_blank">LUBW</a> · NIZ BW · BfG/LAWA
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: NIEDERSCHLAG -->
+  <div class="panel" id="panel-niederschlag">
+    <div class="info-box">
+      <span>🌧️</span>
+      <span id="regen-info">Niederschlagsdaten der nächstgelegenen DWD-Station. Starke Niederschlagsereignisse können die Wasserqualität in Fliessgewässern und Seen beeinflussen.</span>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Letzte 6h</div>
+        <div class="stat-value" id="regen-6h">– <span class="stat-unit">mm</span></div>
+        <div class="stat-trend flat" id="regen-6h-sub">–</div>
+        <div class="stat-time" id="regen-station-1">DWD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Letzte 24h</div>
+        <div class="stat-value" id="regen-24h">– <span class="stat-unit">mm</span></div>
+        <div class="stat-trend flat" id="regen-24h-sub">–</div>
+        <div class="stat-time" id="regen-station-2">DWD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Letzte 72h</div>
+        <div class="stat-value" id="regen-72h">– <span class="stat-unit">mm</span></div>
+        <div class="stat-trend flat" id="regen-72h-sub">–</div>
+        <div class="stat-time" id="regen-station-3">DWD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trigger-Status</div>
+        <div class="stat-value" style="font-size:18px" id="regen-trigger">⚪</div>
+        <div class="stat-trend flat" id="regen-trigger-sub">–</div>
+        <div class="stat-time">Schwelle: 10mm/6h · 20mm/24h</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">🌧️</div>
+        <div>
+          <div class="card-title">Niederschlag &amp; Pegel · letzte 72 Stunden</div>
+          <div class="card-sub" id="regen72-sub">DWD-Station + nächster Pegel</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap" style="height:250px">
+          <canvas id="regen72Chart"></canvas>
+        </div>
+      </div>
+      <div class="card-footer">
+        © Deutscher Wetterdienst (DWD), <a href="https://opendata.dwd.de" target="_blank">opendata.dwd.de</a>, DL-DE/BY-2-0 &nbsp;·&nbsp; Pegel: HVZ BW / PEGELONLINE
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">ℹ️</div>
+        <div>
+          <div class="card-title">Risikomodell Erklärung</div>
+          <div class="card-sub">Wie Niederschlag die Wasserqualität beeinflusst</div>
+        </div>
+      </div>
+      <div class="card-body" style="font-size:13px;line-height:1.65;color:var(--gray-700)">
+        <p style="margin-bottom:10px">Nach starken Niederschlagsereignissen (>10 mm/6h oder >20 mm/24h) kann es zu erhöhten Keimbelastungen in Gewässern kommen. Ursachen sind Oberflächenabfluss, Einträge aus der Landwirtschaft und Mischwasserüberläufe.</p>
+        <p style="margin-bottom:10px">Das Dashboard zeigt einen <strong>Risikoindex</strong>, der Niederschlagsmenge, Pegelanstieg und NH₄-Konzentration kombiniert. Er ist als Frühwarnung gedacht — kein Ersatz für behördliche Badeverbote.</p>
+        <p style="background:var(--gray-100);border-radius:8px;padding:10px;font-size:12px">⚠️ Liegen keine aktuellen Direktmessungen vor (&lt;14 Tage), wird das Ampel-Signal als <strong>„Modellschätzung"</strong> gekennzeichnet.</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mobile-nav-btn mnb-uebersicht active" onclick="setTabMobile('uebersicht',this)">
+    <span class="nav-icon">🗺️</span>Übersicht
+  </button>
+  <div class="mobile-nav-group mobile-nav-fluss">
+    <div class="mobile-nav-grouplabel">Fließgewässer</div>
+    <div class="mobile-nav-groupbtns">
+      <button class="mobile-nav-btn mnb-fluss" onclick="setTabMobile('pegel',this)">
+        <span class="nav-icon">📊</span>Pegel
+      </button>
+      <button class="mobile-nav-btn mnb-fluss" onclick="setTabMobile('chemie',this)">
+        <span class="nav-icon">🧪</span>Chemie
+      </button>
+      <button class="mobile-nav-btn mnb-fluss" onclick="setTabMobile('niederschlag',this)">
+        <span class="nav-icon">🌧️</span>Regen
+      </button>
+    </div>
+  </div>
+  <div class="mobile-nav-group mobile-nav-seen">
+    <div class="mobile-nav-grouplabel">Badeseen</div>
+    <div class="mobile-nav-groupbtns">
+      <button class="mobile-nav-btn mnb-seen" onclick="setTabMobile('badegewaesser',this)">
+        <span class="nav-icon">🏊</span>Badeseen
+      </button>
+    </div>
+  </div>
+</nav>
+
+<footer>
+  <div class="sources-grid">
+    <div>📡 <strong>Pegeldaten</strong><br>HVZ Baden-Württemberg / LUBW · PEGELONLINE (WSV)</div>
+    <div>🏊 <strong>Badegewässer</strong><br>LGL, <a href="https://www.lgl-bw.de" target="_blank">lgl-bw.de</a> · dl-de/by-2-0</div>
+    <div>🧪 <strong>Gewässergüte</strong><br>UIS der <a href="https://www.lubw.bwl.de" target="_blank">LUBW</a> BW</div>
+    <div>🌧️ <strong>Niederschlag</strong><br>© <a href="https://opendata.dwd.de" target="_blank">DWD</a> · DL-DE/BY-2-0</div>
+    <div>🗺️ <strong>Kartenhintergrund</strong><br>© <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a>-Mitwirkende · ODbL</div>
+    <div>📅 <strong>Stand</strong><br><span id="footer-stand">–</span></div>
+  </div>
+  <div class="disclaimer">
+    Dieses Dashboard dient ausschließlich der Information und ersetzt keine behördlichen Badeverbote oder amtlichen Warnungen.
+    Für die Richtigkeit, Vollständigkeit und Aktualität der dargestellten Daten wird keine Haftung übernommen.
+    <br>Offizielle Informationen: <a href="https://badegewaesserkarte.landbw.de" target="_blank">badegewaesserkarte.landbw.de</a> &nbsp;·&nbsp;
+    <a href="https://www.hochwasserzentralen.de" target="_blank">hochwasserzentralen.de</a>
+  </div>
+</footer>
+
+<script>
+// ── TAB LOGIC ──────────────────────────────────────────────────────────────
+let currentTab = 'uebersicht';
+const chartsInitialized = {};
+
+function setTab(tab, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  // activate the desktop button
+  const desktopBtn = btn || document.getElementById('btn-' + tab);
+  if (desktopBtn) desktopBtn.classList.add('active');
+  currentTab = tab;
+  // sync mobile nav: clear all, then activate matching button
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  // find the mobile button that triggers this tab
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => {
+    const onclick = b.getAttribute('onclick') || '';
+    if (onclick.includes("'" + tab + "'")) b.classList.add('active');
+  });
+  // re-render map if switching back to overview
+  if (tab === 'uebersicht') {
+    if (_map) setTimeout(() => _map.invalidateSize(), 50);
+    else setTimeout(initMap, 50);
+  }
+  initCharts(tab);
+  updateUrl('tab', tab);
+}
+
+function setTabMobile(tab, btn) {
+  setTab(tab);
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── URL STATE ──────────────────────────────────────────────────────────────
+function updateUrl(key, val) {
+  const u = new URL(window.location.href);
+  u.searchParams.set(key, val);
+  history.replaceState({}, '', u);
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function showToast(msg, type = 'info') {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast' + (type !== 'info' ? ' ' + type : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+function fmtDate(ts) {
+  if (!ts) return '–';
+  const d = ts instanceof Date ? ts : new Date(ts);
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+// ── GEOCODING / FREITEXTSUCHE ───────────────────────────────────────────────
+// Baden-Württemberg-Bounding-Box (lon/lat) für gezielte Treffer.
+const BW_VIEWBOX = '7.45,49.85,10.55,47.50'; // lon_min,lat_max,lon_max,lat_min
+const BW_BOUNDS = { latMin: 47.5, latMax: 49.85, lonMin: 7.45, lonMax: 10.55 };
+function inBW(lat, lon) {
+  return lat >= BW_BOUNDS.latMin && lat <= BW_BOUNDS.latMax && lon >= BW_BOUNDS.lonMin && lon <= BW_BOUNDS.lonMax;
+}
+
+// Universelle Ortsauflösung: 5-stellige PLZ → Zippopotam, sonst Nominatim (BW).
+async function resolveLocation(query) {
+  const q = (query || '').trim();
+  if (!q) throw new Error('Bitte Ort, PLZ, Fluss oder See eingeben');
+
+  if (/^\d{5}$/.test(q)) {
+    const r = await fetch(`https://api.zippopotam.us/de/${encodeURIComponent(q)}`);
+    if (r.ok) {
+      const d = await r.json();
+      const p = d.places && d.places[0];
+      const lat = p ? +p.latitude : NaN, lon = p ? +p.longitude : NaN;
+      if (isFinite(lat) && isFinite(lon)) return { lat, lon, name: `${p['place name']} (${q})` };
+    }
+    // PLZ nicht bei Zippopotam → Nominatim-Fallback (postalcode)
+  }
+
+  const hits = await nominatimSearch(q, 1);
+  if (!hits.length) throw new Error(`„${q}" nicht gefunden`);
+  return hits[0];
+}
+
+// Nominatim-Suche, bevorzugt innerhalb BW (bounded), Fallback ohne Begrenzung.
+async function nominatimSearch(q, limit = 6) {
+  const base = 'https://nominatim.openstreetmap.org/search';
+  const common = `format=jsonv2&addressdetails=1&accept-language=de&limit=${limit}`;
+  const tryFetch = async (extra) => {
+    try {
+      const r = await fetch(`${base}?q=${encodeURIComponent(q)}&${common}&${extra}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!r.ok) return [];
+      return await r.json();
+    } catch { return []; }
+  };
+  let arr = await tryFetch(`countrycodes=de&viewbox=${BW_VIEWBOX}&bounded=1`);
+  if (!arr.length) arr = await tryFetch(`countrycodes=de`);
+  return arr.map(h => ({
+    lat: +h.lat, lon: +h.lon,
+    name: shortPlaceName(h),
+    kind: h.type, klass: h.class,
+  })).filter(h => isFinite(h.lat) && isFinite(h.lon));
+}
+
+function shortPlaceName(h) {
+  const a = h.address || {};
+  const place = a.city || a.town || a.village || a.municipality || a.county || '';
+  const main = h.name || (h.display_name || '').split(',')[0];
+  if (place && main && place !== main) return `${main}, ${place}`;
+  return main || place || (h.display_name || '').split(',')[0];
+}
+
+function placeIcon(h) {
+  if (h.klass === 'waterway' || /river|stream|canal/.test(h.kind || '')) return '🏞️';
+  if (h.klass === 'water' || h.klass === 'natural' || /lake|water|reservoir|pond/.test(h.kind || '')) return '🏊';
+  if (/city|town|village|municipality|administrative/.test(h.kind || '')) return '🏙️';
+  return '📍';
+}
+
+async function fetchBadegewaesser(lat, lon, radiusKm) {
+  const BASE = 'https://services-eu1.arcgis.com/1U6wr24jYkiSRBIK/arcgis/rest/services';
+  const URL0 = `${BASE}/Badegewaesser/FeatureServer/0/query`;
+
+  // Bounding-Box für Spatial-Filter (Fallback wenn Point+Distance nicht geht)
+  const latD = radiusKm / 111.32;
+  const lonD = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180));
+  const bbox = `${lon-lonD},${lat-latD},${lon+lonD},${lat+latD}`;
+
+  // Felder die sicher existieren (WGS84_X/WGS84_Y sind kein Standardfeld dieses Service)
+  const FIELDS = 'BW_ID,BADEGEWAESSERNAME,GEMEINDE_NAME,QUALITAET_LAUT_EU_2021,AKTUELL_BADEVERBOT,AKTUELL_MELDUNG';
+
+  // Spatial-Filter (distance+units, inSR) werden von diesem Service abgelehnt →
+  // alle Features holen, client-seitig nach Umkreis filtern.
+  // Versuche: mit outSR=4326 (WGS84-Geometrie), Fallback ohne outSR.
+  const attempts = [
+    { where:'1=1', outFields:FIELDS, returnGeometry:'true', outSR:'4326', f:'json' },
+    { where:'1=1', outFields:FIELDS, returnGeometry:'true', f:'json' },
+  ];
+
+  let stations = null;
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const r = await fetch(`${URL0}?${new URLSearchParams(attempts[i])}`);
+      if (!r.ok) { console.warn(`ArcGIS Versuch ${i+1}: HTTP ${r.status}`); continue; }
+      const d = await r.json();
+      if (d.error) { console.warn(`ArcGIS Versuch ${i+1} Fehler:`, JSON.stringify(d.error)); continue; }
+      if (Array.isArray(d.features)) {
+        console.log(`ArcGIS Versuch ${i+1} OK: ${d.features.length} Features, SR:`, d.spatialReference);
+        stations = d; break;
+      }
+    } catch(e) { console.warn(`ArcGIS Versuch ${i+1} Exception:`, e.message); continue; }
+  }
+
+  if (!stations?.features?.length) {
+    console.warn('Alle ArcGIS-Anfragen lieferten keine Features');
+    return [];
+  }
+
+  // Koordinaten: WGS84_Y/X aus Attributen (bevorzugt) oder Geometrie (Fallback)
+  function getCoords(f) {
+    const a = f.attributes || {};
+    const atLat = parseFloat(a.WGS84_Y), atLon = parseFloat(a.WGS84_X);
+    if (isFinite(atLat) && isFinite(atLon) && atLat > 40 && atLat < 60) return [atLat, atLon];
+    const gy = f.geometry?.y, gx = f.geometry?.x;
+    if (isFinite(gy) && isFinite(gx) && gy > 40 && gy < 60) return [gy, gx];
+    return [null, null];
+  }
+
+  // Client-seitiger Umkreisfilter (nötig wenn kein Spatial-Filter angewendet wurde)
+  const nearby = stations.features.filter(f => {
+    const [fLat, fLon] = getCoords(f);
+    if (fLat === null) return true; // keine Koordinaten → trotzdem zeigen
+    return haversine(lat, lon, fLat, fLon) <= radiusKm;
+  });
+  if (!nearby.length) return [];
+
+  const idsStr = nearby.map(f => `'${f.attributes.BW_ID}'`).join(',');
+  const mParams = new URLSearchParams({
+    where: `BW_ID IN (${idsStr})`,
+    outFields: 'BW_ID,PROBE_DATUM,MESS_COLI,MESS_ENTEROK,TEMPERATUR',
+    orderByFields: 'PROBE_DATUM DESC', resultRecordCount: '500', f: 'json'
+  });
+  const mRes = await fetch(`${BASE}/Gesamt_UVB_Messdaten_Tabelle/FeatureServer/0/query?${mParams}`);
+  const mData = await mRes.json();
+
+  const latest = {};
+  for (const f of (mData.features || [])) {
+    const a = f.attributes;
+    if (!latest[a.BW_ID]) latest[a.BW_ID] = a;
+  }
+
+  return nearby.map(f => {
+    const a = f.attributes, m = latest[a.BW_ID] || {};
+    const [fLat, fLon] = getCoords(f);
+    return {
+      id: a.BW_ID,
+      name: a.BADEGEWAESSERNAME || a.GEMEINDE_NAME || a.BW_ID,
+      lat: fLat, lon: fLon,
+      distKm: fLat !== null ? Math.round(haversine(lat, lon, fLat, fLon)) : null,
+      euQualitaet: a.QUALITAET_LAUT_EU_2021 || '',
+      // AKTUELL_BADEVERBOT: 1=ohne Einschränkung, 2=es liegt eine Meldung vor (heterogen).
+      // Echtes Verbot/Sperrung nur per Meldungstext erkennen (z.B. „aufgehoben" ausschließen).
+      hinweis: a.AKTUELL_BADEVERBOT === 2,
+      badeverbot: a.AKTUELL_BADEVERBOT === 2
+        && /badeverbot|gesperrt|sperr|untersagt|nicht baden/i.test(a.AKTUELL_MELDUNG || '')
+        && !/aufgehoben/i.test(a.AKTUELL_MELDUNG || ''),
+      meldung: a.AKTUELL_MELDUNG || '',
+      ecoli: m.MESS_COLI ?? null,
+      enterok: m.MESS_ENTEROK ?? null,
+      temp: m.TEMPERATUR ?? null,
+      probeDatum: m.PROBE_DATUM ? new Date(m.PROBE_DATUM) : null,
+    };
+  }).sort((a, b) => (a.distKm ?? 999) - (b.distKm ?? 999));
+}
+
+function badeStatus(lake) {
+  if (lake.badeverbot) return { hex: '#ef4444', label: 'Badeverbot', cls: 'rot' };
+  if (lake.ecoli !== null) {
+    if (lake.ecoli > 900 || (lake.enterok ?? 0) > 370) return { hex: '#ef4444', label: 'Schlecht', cls: 'rot' };
+    if (lake.ecoli > 500 || (lake.enterok ?? 0) > 200) return { hex: '#eab308', label: 'Mässig', cls: 'gelb' };
+    return { hex: '#22c55e', label: 'Gut', cls: 'gruen' };
+  }
+  const eu = (lake.euQualitaet || '').toLowerCase();
+  if (eu.includes('poor') || eu.includes('schlecht')) return { hex: '#ef4444', label: 'Schlecht', cls: 'rot' };
+  if (eu.includes('sufficient') || eu.includes('ausreich')) return { hex: '#eab308', label: 'Ausreichend', cls: 'gelb' };
+  if (eu.includes('good') || eu.includes('excellent') || eu.includes('gut') || eu.includes('ausgezeichnet')) return { hex: '#22c55e', label: 'Gut', cls: 'gruen' };
+  return { hex: '#9ca3af', label: 'Keine Daten', cls: 'grau' };
+}
+
+function badgeHtml(st) {
+  const icon = st.cls === 'gruen' ? '🟢' : st.cls === 'gelb' ? '🟡' : st.cls === 'rot' ? '🔴' : '⚪';
+  return `<span class="badge ${st.cls}">${icon} ${st.label}</span>`;
+}
+
+// ── RENDER ──────────────────────────────────────────────────────────────────
+function renderBadegewaesser(lakes, radiusKm) {
+  const now = fmtDate(new Date());
+  const sub = `${lakes.length} Stellen im ${radiusKm}-km-Umkreis · Stand ${now}`;
+
+  // Overview table (uebersicht tab)
+  const ovEl = document.querySelector('#badeOverviewTable tbody');
+  const ovSub = document.getElementById('bade-overview-sub');
+  if (ovSub) ovSub.textContent = sub;
+  if (ovEl) {
+    ovEl.innerHTML = lakes.slice(0, 6).map(l => {
+      const st = badeStatus(l);
+      const ecoli = l.ecoli !== null ? l.ecoli : '–';
+      return `<tr><td>${l.name}</td><td>${l.distKm}</td><td>${ecoli}</td><td>${badgeHtml(st)}</td></tr>`;
+    }).join('') || '<tr><td colspan="4" style="color:var(--gray-400);padding:16px">Keine Daten</td></tr>';
+  }
+
+  // Full table (badegewaesser tab)
+  const fullEl = document.querySelector('#badeTable tbody');
+  const fullSub = document.getElementById('bade-full-sub');
+  if (fullSub) fullSub.textContent = sub;
+  if (fullEl) {
+    fullEl.innerHTML = lakes.map(l => {
+      const st = badeStatus(l);
+      const ec = l.ecoli !== null ? ((l.ecoli > 500) ? `<strong style="color:var(--red-600)">${l.ecoli}</strong>` : l.ecoli) : '–';
+      const en = l.enterok !== null ? ((l.enterok > 200) ? `<strong style="color:var(--red-600)">${l.enterok}</strong>` : l.enterok) : '–';
+      const tmp = l.temp !== null ? l.temp.toFixed(1) + '°C' : '–';
+      return `<tr><td>${l.name}</td><td>${l.distKm}</td><td>${ec}</td><td>${en}</td><td>${tmp}</td><td>${badgeHtml(st)}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" style="color:var(--gray-400);padding:16px">Keine Badegewässer im Umkreis</td></tr>';
+  }
+
+  // Stats card
+  const stEl = document.getElementById('seen-count');
+  if (stEl) stEl.textContent = lakes.length;
+  const stSub = document.getElementById('seen-status');
+  if (stSub) {
+    const bad = lakes.filter(l => badeStatus(l).cls !== 'gruen').length;
+    stSub.textContent = bad ? `${lakes.length - bad} × 🟢  ${bad} × ⚠️` : `${lakes.length} × 🟢 alle gut`;
+  }
+}
+
+// ── MAP DYNAMICS ──────────────────────────────────────────────────────────
+let _radiusLayer = null, _lakeLayers = [];
+
+function updateMapRadius(lat, lon, radiusKm) {
+  if (!_map) return;
+  if (!isFinite(lat) || !isFinite(lon)) return;
+  if (_radiusLayer) _map.removeLayer(_radiusLayer);
+  _radiusLayer = L.circle([lat, lon], {
+    radius: radiusKm * 1000, color: '#0369a1', weight: 1,
+    fillColor: '#0369a1', fillOpacity: 0.04, dashArray: '8 5'
+  }).addTo(_map);
+  _map.setView([lat, lon], radiusKm <= 10 ? 12 : radiusKm <= 20 ? 10 : 9);
+}
+
+function updateMapLakes(lakes) {
+  if (!_map) return;
+  _lakeLayers.forEach(l => _map.removeLayer(l));
+  _lakeLayers = [];
+  lakes.forEach(lake => {
+    if (lake.lat == null || lake.lon == null || !isFinite(lake.lat) || !isFinite(lake.lon)) return;
+    const st = badeStatus(lake);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:22px;height:22px;background:${st.hex};border:2.5px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 1px 5px rgba(0,0,0,.3)">🏊</div>`,
+      iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -13]
+    });
+    const ec = lake.ecoli !== null ? lake.ecoli + ' KBE/100ml' : 'keine Messung';
+    const en = lake.enterok !== null ? lake.enterok + ' KBE/100ml' : 'keine Messung';
+    const tmp = lake.temp !== null ? lake.temp.toFixed(1) + '°C' : '–';
+    const layer = L.marker([lake.lat, lake.lon], { icon }).addTo(_map).bindPopup(`
+      <div style="font-family:Inter,sans-serif;min-width:160px">
+        <div style="font-size:11px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">🏊 Badegewässer</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">${lake.name}</div>
+        <div style="font-size:12px;color:#555;line-height:1.7">
+          E. coli: <strong>${ec}</strong><br>
+          Enterokokken: <strong>${en}</strong><br>
+          Temperatur: <strong>${tmp}</strong><br>
+          Status: <strong style="color:${st.hex}">${st.label}</strong>
+        </div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:4px">Stand: ${fmtDate(lake.probeDatum)} · LGL</div>
+      </div>
+    `);
+    _lakeLayers.push(layer);
+  });
+}
+
+// ── SEARCH / ORCHESTRIERUNG ──────────────────────────────────────────────────
+let _currentLat = 48.93, _currentLon = 8.96;
+let _radius = 20, _locName = '';
+let _pegelStations = [];
+let _dwd = null;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+async function search() {
+  const query = document.getElementById('plzInput').value.trim();
+  const radius = Math.min(Math.max(parseInt(document.getElementById('radiusInput').value) || 20, 5), 80);
+  closeAutocomplete();
+  if (!query) { showToast('Bitte Ort, PLZ, Fluss oder See eingeben', 'error'); return; }
+
+  const btn = document.querySelector('.search-btn');
+  btn.textContent = '…'; btn.disabled = true;
+
+  try {
+    const loc = await resolveLocation(query);
+    _currentLat = loc.lat; _currentLon = loc.lon; _radius = radius; _locName = loc.name;
+
+    // URL-State: q + radius (alte plz/lat/lon entfernen)
+    const u = new URL(window.location.href);
+    ['plz', 'lat', 'lon'].forEach(k => u.searchParams.delete(k));
+    u.searchParams.set('q', query); u.searchParams.set('radius', String(radius));
+    history.replaceState({}, '', u);
+
+    const sub = document.getElementById('header-sub');
+    if (sub) sub.textContent = `${loc.name} · ${radius} km Umkreis`;
+    const mf = document.getElementById('map-footer');
+    if (mf) mf.innerHTML = `🗺️ Stationen im ${radius}-km-Umkreis um ${escapeHtml(loc.name)} &nbsp;·&nbsp; <a href="https://www.openstreetmap.org" target="_blank">© OpenStreetMap</a>`;
+
+    if (_map) updateMapRadius(loc.lat, loc.lon, radius);
+    if (!inBW(loc.lat, loc.lon))
+      showToast('Hinweis: Ort liegt außerhalb Baden-Württembergs – Datenlage ggf. unvollständig.', 'info');
+
+    // Alle Quellen parallel laden (einzelne Fehler isolieren)
+    const [lakes, pegel, dwd] = await Promise.all([
+      fetchBadegewaesser(loc.lat, loc.lon, radius).catch(e => { console.warn('Bade:', e); return []; }),
+      loadPegelLive(loc.lat, loc.lon, radius),
+      loadDWDLive(loc.lat, loc.lon),
+    ]);
+    _currentLakes = lakes; _pegelStations = pegel; _dwd = dwd;
+
+    renderBadegewaesser(lakes, radius);
+    renderPegelTable(pegel, radius);
+    renderDWDStats(dwd);
+    renderChemie(loc);
+    if (_map) { updateMapLakes(lakes); updateMapPegel(pegel); }
+    updateOverviewStats(pegel, dwd);
+    updateAmpel(lakes, pegel, dwd, radius);
+    updateFooterStand();
+
+    // aktiven Tab neu zeichnen (Charts hängen von frischen Daten ab)
+    Object.keys(chartsInitialized).forEach(k => delete chartsInitialized[k]);
+    initCharts(currentTab);
+
+    showToast(`${lakes.length} Badegewässer · ${pegel.length} Pegel um ${loc.name}`, 'success');
+  } catch (e) {
+    console.error(e);
+    showToast('Fehler: ' + e.message, 'error');
+  } finally {
+    btn.textContent = 'Suchen'; btn.disabled = false;
+  }
+}
+
+function updateFooterStand() {
+  const now = new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const fs = document.getElementById('footer-stand'); if (fs) fs.textContent = now + ' Uhr';
+  const as = document.getElementById('ampel-stand'); if (as) as.textContent = 'Stand: ' + now + ' Uhr';
+}
+
+function shareUrl() {
+  const url = window.location.href;
+  const title = 'Wasserqualität ' + (_locName || 'Baden-Württemberg');
+  if (navigator.share) {
+    navigator.share({ title, url });
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showToast('Link kopiert!', 'success'));
+  }
+}
+
+// ── AUTOCOMPLETE ─────────────────────────────────────────────────────────────
+let _acItems = [], _acActive = -1, _acTimer = null;
+
+function initAutocomplete() {
+  const input = document.getElementById('plzInput');
+  const list = document.getElementById('acList');
+  if (!input || !list) return;
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearTimeout(_acTimer);
+    if (q.length < 2 || /^\d{5}$/.test(q)) { closeAutocomplete(); return; }
+    _acTimer = setTimeout(async () => {
+      const hits = await nominatimSearch(q, 6);
+      renderAutocomplete(hits);
+    }, 280);
+  });
+  input.addEventListener('keydown', e => {
+    const open = list.classList.contains('open');
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (open && _acActive >= 0) pickAc(_acActive);
+      else { closeAutocomplete(); search(); }
+      return;
+    }
+    if (!open) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveAc(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveAc(-1); }
+    else if (e.key === 'Escape') closeAutocomplete();
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-autowrap')) closeAutocomplete();
+  });
+}
+
+function renderAutocomplete(hits) {
+  const list = document.getElementById('acList');
+  _acItems = hits; _acActive = -1;
+  if (!hits.length) { closeAutocomplete(); return; }
+  list.innerHTML = hits.map((h, i) =>
+    `<div class="ac-item" role="option" data-i="${i}" onclick="pickAc(${i})">
+       <span class="ac-ico">${placeIcon(h)}</span><span>${escapeHtml(h.name)}</span>
+       <span class="ac-sub">${escapeHtml(h.kind || '')}</span>
+     </div>`).join('');
+  list.classList.add('open');
+}
+
+function moveAc(dir) {
+  const list = document.getElementById('acList');
+  const items = [...list.querySelectorAll('.ac-item')];
+  if (!items.length) return;
+  _acActive = (_acActive + dir + items.length) % items.length;
+  items.forEach((el, i) => el.classList.toggle('active', i === _acActive));
+}
+
+function pickAc(i) {
+  const h = _acItems[i]; if (!h) return;
+  document.getElementById('plzInput').value = h.name;
+  closeAutocomplete();
+  search();
+}
+
+function closeAutocomplete() {
+  const list = document.getElementById('acList');
+  if (list) { list.classList.remove('open'); list.innerHTML = ''; }
+  _acActive = -1;
+}
+
+// ── LEAFLET MAP ────────────────────────────────────────────────────────────
+let _map = null;
+
+function initMap() {
+  if (_map) return;
+  const mapEl = document.getElementById('map');
+  if (!mapEl || mapEl.offsetHeight === 0) {
+    setTimeout(initMap, 150);
+    return;
+  }
+
+  // Start: ganz Baden-Württemberg; wird nach erster Suche zentriert.
+  _map = L.map('map', { zoomControl: true, scrollWheelZoom: false })
+    .setView([48.6, 9.0], 7);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
+    maxZoom: 18,
+    crossOrigin: true
+  }).addTo(_map);
+
+  // ── Umkreis (initial, wird durch updateMapRadius ersetzt) ──
+  _radiusLayer = L.circle([_currentLat, _currentLon], {
+    radius: _radius * 1000, color: '#0369a1', weight: 1,
+    fillColor: '#0369a1', fillOpacity: 0.04, dashArray: '8 5'
+  }).addTo(_map);
+
+  // ── Marker (Pegel + Badeseen) werden dynamisch per Suche geladen ──
+
+  // ── Legende ──
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = () => {
+    const d = L.DomUtil.create('div');
+    d.style.cssText = 'background:white;padding:9px 12px;border-radius:10px;font-size:11px;line-height:1.9;box-shadow:0 2px 8px rgba(0,0,0,.18);font-family:Inter,sans-serif';
+    d.innerHTML =
+      '<div style="font-weight:700;margin-bottom:2px;color:#111">Legende</div>' +
+      '<div style="border-bottom:1px solid #e5e7eb;margin-bottom:4px;padding-bottom:4px">' +
+        '<span style="display:inline-block;width:12px;height:12px;background:#0369a1;transform:rotate(45deg);vertical-align:middle;margin:0 5px 0 1px;border-radius:2px;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span><span style="color:#374151">Pegelstation</span>' +
+      '</div>' +
+      '<div>' +
+        '<span style="color:#555;font-size:10px;text-transform:uppercase;font-weight:600;letter-spacing:.05em">Badegewässer</span><br>' +
+        '<span style="display:inline-block;width:14px;height:14px;background:#22c55e;border-radius:50%;vertical-align:middle;margin-right:4px;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>Gut / Ausgezeichnet<br>' +
+        '<span style="display:inline-block;width:14px;height:14px;background:#eab308;border-radius:50%;vertical-align:middle;margin-right:4px;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>Mässig<br>' +
+        '<span style="display:inline-block;width:14px;height:14px;background:#ef4444;border-radius:50%;vertical-align:middle;margin-right:4px;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>Schlecht / Badeverbot' +
+      '</div>';
+    return d;
+  };
+  legend.addTo(_map);
+
+  setTimeout(() => _map.invalidateSize(), 200);
+}
+
+// ── Dynamische Pegel-Marker (Rauten) ──
+let _pegelLayers = [];
+function updateMapPegel(stations) {
+  if (!_map) return;
+  _pegelLayers.forEach(l => _map.removeLayer(l));
+  _pegelLayers = [];
+  (stations || []).forEach(s => {
+    if (!isFinite(s.lat) || !isFinite(s.lon)) return;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:16px;height:16px;background:#0369a1;border:2px solid white;border-radius:3px;transform:rotate(45deg);box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+      iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -10]
+    });
+    const w = s.w != null ? `${s.w} ${s.wUnit}` : 'keine Messung';
+    const q = s.q != null ? `${s.q} ${s.qUnit}` : '–';
+    const layer = L.marker([s.lat, s.lon], { icon }).addTo(_map).bindPopup(`
+      <div style="font-family:Inter,sans-serif;min-width:160px">
+        <div style="font-size:11px;color:#0369a1;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">🌊 Pegel ${escapeHtml(s.water || '')}</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">${escapeHtml(s.name)}</div>
+        <div style="font-size:12px;color:#555;line-height:1.7">
+          Wasserstand: <strong>${w}</strong><br>
+          Abfluss: <strong>${q}</strong><br>
+          Entfernung: <strong>${s.distKm} km</strong>
+        </div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:4px">Stand: ${escapeHtml(s.wDate || '')} · HVZ BW</div>
+      </div>`);
+    _pegelLayers.push(layer);
+  });
+}
+
+// ── PROXY URL ─────────────────────────────────────────────────────────────
+function proxyUrl(name) {
+  const h = window.location.hostname, p = window.location.port;
+  if (window.location.protocol === 'file:') {
+    throw new Error('file://-Protokoll: bitte "netlify dev" oder "vercel dev" für lokales Testen verwenden');
+  }
+  // python3 -m http.server kann keine Netlify/Vercel Functions ausführen
+  if (window.location.port === '8080' || window.location.port === '8000') {
+    throw new Error('python3 http.server kann keine Proxy-Funktionen ausführen. Bitte "netlify dev" oder "npx vercel dev" starten.');
+  }
+  if (p === '3000' || h.endsWith('.vercel.app')) return `/api/${name}`;
+  return `/.netlify/functions/${name}`;
+}
+
+// ── CHART HELPERS ──────────────────────────────────────────────────────────
+const defaultFont = { family: 'Inter, -apple-system, sans-serif', size: 11 };
+const GC = 'rgba(0,0,0,.06)', TC = '#9ca3af';
+
+function chartMsg(canvasId, msg) {
+  const c = document.getElementById(canvasId);
+  if (!c) return;
+  const ex = Chart.getChart(c); if (ex) ex.destroy();
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.fillStyle = TC; ctx.font = '13px Inter,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(msg, c.width / 2, c.height / 2);
+}
+
+function normalizeHistory(raw) {
+  if (!raw) return null;
+  const arr = Array.isArray(raw) ? raw : (raw.measurements || raw.values || raw.data || raw.timeseries || null);
+  if (!Array.isArray(arr) || !arr.length) return null;
+  return arr.map(p => {
+    const dt = p.dt || p.datetime || p.timestamp || p.date || p.ts;
+    const w  = p.w ?? p.wasserstand ?? p.value ?? p.ms ?? p.level ?? p.W;
+    const q  = p.q ?? p.Q ?? p.abfluss ?? p.flow;
+    if (!dt || w == null) return null;
+    return { dt: new Date(dt).toISOString(), w: +w, q: q != null ? +q : null };
+  }).filter(Boolean);
+}
+
+// ── LIVE LOADERS ───────────────────────────────────────────────────────────
+// HVZ-Pegel (nächste Stationen) über eigenen Proxy.
+async function loadPegelLive(lat, lon, radiusKm) {
+  try {
+    const r = await fetch(`${proxyUrl('pegel')}?lat=${lat}&lon=${lon}&radius=${radiusKm}&limit=10`);
+    if (!r.ok) throw new Error('Pegel ' + r.status);
+    const d = await r.json();
+    return d.ok && Array.isArray(d.stations) ? d.stations : [];
+  } catch (e) { console.warn('Pegel:', e); return []; }
+}
+
+// DWD-Niederschlag (nächste Station) über eigenen Proxy.
+async function loadDWDLive(lat, lon) {
+  try {
+    const r = await fetch(`${proxyUrl('dwd')}?lat=${lat}&lon=${lon}`);
+    if (!r.ok) throw new Error('DWD ' + r.status);
+    return await r.json();
+  } catch (e) { console.warn('DWD:', e); return null; }
+}
+
+// PEGELONLINE (WSV): nächste Bundeswasserstraßen-Pegel mit W-Zeitreihe (CORS-fähig).
+async function pegelonlineNearby(lat, lon, radiusKm, limit = 2) {
+  try {
+    const url = `https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json`
+      + `?latitude=${lat}&longitude=${lon}&radius=${radiusKm}`
+      + `&includeTimeseries=true&includeCurrentMeasurement=true`;
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const arr = await r.json();
+    return (Array.isArray(arr) ? arr : [])
+      .filter(s => (s.timeseries || []).some(t => t.shortname === 'W'))
+      .slice(0, limit);
+  } catch { return []; }
+}
+
+async function pegelonlineHistory(uuid) {
+  try {
+    const r = await fetch(`https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/${uuid}/W/measurements.json?start=P7D`);
+    if (!r.ok) return null;
+    const arr = await r.json();
+    return Array.isArray(arr) && arr.length ? arr.map(p => ({ dt: p.timestamp, w: +p.value })) : null;
+  } catch { return null; }
+}
+
+// ── RENDER: PEGEL ────────────────────────────────────────────────────────────
+function renderPegelTable(stations, radiusKm) {
+  const sub = document.getElementById('pegel-list-sub');
+  const tb = document.querySelector('#pegelTable tbody');
+  if (sub) sub.textContent = `${stations.length} Pegel im ${radiusKm}-km-Umkreis · ${prettyName()}`;
+  if (!tb) return;
+  if (!stations.length) {
+    tb.innerHTML = '<tr><td colspan="6" style="color:var(--gray-400);padding:16px">Keine Pegelstation im Umkreis</td></tr>';
+    return;
+  }
+  tb.innerHTML = stations.map(s => {
+    const w = s.w != null ? `${s.w} ${s.wUnit}` : '–';
+    const q = s.q != null ? `${s.q} ${s.qUnit}` : '–';
+    const stamp = (s.wDate || '').replace(/\s*MES?Z$/, '');
+    return `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.water||'')}</td><td>${s.distKm}</td><td>${w}</td><td>${q}</td><td style="font-size:11px;color:var(--gray-500)">${escapeHtml(stamp)}</td></tr>`;
+  }).join('');
+}
+
+function prettyName() { return _locName ? `um ${_locName}` : ''; }
+
+// ── RENDER: ÜBERSICHTS-KACHELN ───────────────────────────────────────────────
+function updateOverviewStats(stations, dwd) {
+  const set = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
+  const setT = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  const p = stations.find(s => s.w != null) || stations[0];
+  if (p) {
+    setT('ov-pegel-label', `⬆ Pegel ${p.name}`);
+    set('ov-pegel-w', (p.w != null ? p.w : '–') + ' <span class="stat-unit">' + (p.wUnit || 'cm') + '</span>');
+    setT('ov-pegel-water', `${p.water || ''} · ${p.distKm} km`);
+    setT('ov-pegel-time', (p.wDate || 'HVZ BW').replace(/\s*MES?Z$/, ''));
+    set('ov-pegel-q', (p.q != null ? p.q : '–') + ' <span class="stat-unit">m³/s</span>');
+    setT('ov-pegel-q-sub', p.name);
+  } else {
+    setT('ov-pegel-label', '⬆ Nächster Pegel');
+    set('ov-pegel-w', '– <span class="stat-unit">cm</span>');
+    setT('ov-pegel-water', 'kein Pegel im Umkreis');
+  }
+  if (dwd?.ok && dwd.data?.length) {
+    const sum = h => dwd.data.slice(-h).reduce((s, x) => s + (x.mm || 0), 0);
+    set('ov-regen', sum(24).toFixed(1) + ' <span class="stat-unit">mm</span>');
+    setT('ov-regen-sub', sum(24) > 20 ? '⚠ viel Regen' : sum(24) > 0 ? 'leichter Regen' : 'trocken');
+    setT('ov-regen-time', `DWD ${dwd.station?.name || ''}`);
+  }
+}
+
+// ── RENDER: NIEDERSCHLAG-KACHELN ─────────────────────────────────────────────
+function renderDWDStats(dwd) {
+  const set = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
+  const setT = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  if (!dwd?.ok || !dwd.data?.length) {
+    ['regen-6h','regen-24h','regen-72h'].forEach(id => set(id, 'n/v'));
+    setT('regen-trigger', '⚪'); setT('regen-trigger-sub', 'keine DWD-Daten');
+    return;
+  }
+  const name = dwd.station?.name || '', dist = dwd.station?.distKm;
+  const info = document.getElementById('regen-info');
+  if (info) info.textContent = `Niederschlag der nächstgelegenen DWD-Station ${name}${dist != null ? ` (${dist} km)` : ''}. Starke Niederschlagsereignisse können die Wasserqualität in Fließgewässern und Seen beeinflussen.`;
+  ['regen-station-1','regen-station-2','regen-station-3'].forEach(id => setT(id, `DWD ${name}`));
+  const sum = h => +dwd.data.slice(-h).reduce((s, x) => s + (x.mm || 0), 0).toFixed(1);
+  const s6 = sum(6), s24 = sum(24), s72 = sum(72);
+  set('regen-6h', s6 + ' <span class="stat-unit">mm</span>');
+  set('regen-24h', s24 + ' <span class="stat-unit">mm</span>');
+  set('regen-72h', s72 + ' <span class="stat-unit">mm</span>');
+  setT('regen-6h-sub', s6 > 10 ? '⚠ Starkregen' : s6 > 0 ? 'leicht' : 'trocken');
+  setT('regen-24h-sub', s24 > 20 ? '⚠ viel' : s24 > 0 ? 'normal' : 'trocken');
+  setT('regen-72h-sub', s72 > 50 ? '⚠ anhaltend' : 'unauffällig');
+  const t = rainTrigger(s6, s24, s72);
+  setT('regen-trigger', t.cls === 'rot' ? '🔴' : t.cls === 'gelb' ? '🟡' : '🟢');
+  setT('regen-trigger-sub', t.label);
+}
+
+function rainTrigger(s6, s24, s72) {
+  if (s6 > 20 || s24 > 40) return { cls: 'rot', label: 'Starkregen' };
+  if (s6 > 10 || s24 > 20 || s72 > 50) return { cls: 'gelb', label: 'erhöht' };
+  return { cls: 'gruen', label: 'kein Alarm' };
+}
+
+// ── RENDER: CHEMIE / WRRL-ZUSTAND (best effort über Proxy) ───────────────────
+async function renderChemie(loc) {
+  const sub = document.getElementById('chemie-sub');
+  const body = document.getElementById('chemie-body');
+  if (sub) sub.textContent = `Nächster Wasserkörper ${prettyName()}`;
+  if (body) body.innerHTML = '<p style="font-size:13px;color:var(--gray-500)">Für Fließgewässer in Baden-Württemberg liegt keine offene, standortbezogene Echtzeit-Chemie-API vor. Tagesaktuelle Güteparameter (O₂, Temperatur, pH, Leitfähigkeit, NH₄, NO₃) sind über die unten verlinkten Fachportale (NIZ BW, LUBW UDO) abrufbar.</p>';
+}
+
+// ── GESAMT-AMPEL (Teilindikatoren T1, T2, T4, T5 nach techn. Konzept) ─────────
+const AMPEL_WEIGHTS = { pegel: 1.5, mikro: 2.0, regen: 1.0, eu: 1.0 };
+const COLOR_SCORE = { gruen: 0, gelb: 1, rot: 2 };
+
+function setDot(id, cls) {
+  const el = document.getElementById(id);
+  if (el) el.className = 'ind-dot ' + cls;
+}
+
+function euColor(q) {
+  const s = (q || '').toLowerCase();
+  if (s.includes('poor') || s.includes('schlecht')) return 'rot';
+  if (s.includes('suffic') || s.includes('ausreich')) return 'gelb';
+  if (s.includes('good') || s.includes('excellent') || s.includes('gut') || s.includes('ausgezeichnet')) return 'gruen';
+  return null;
+}
+
+function updateAmpel(lakes, pegel, dwd, radiusKm) {
+  // T1 Pegel: Daten vorhanden & frisch → grün, sonst grau
+  let tPegel = null;
+  const freshP = pegel.filter(s => s.w != null && !s.stale);
+  if (freshP.length) tPegel = 'gruen';
+  setDot('ind-pegel', tPegel || 'grau');
+
+  // T2 Mikrobiell: nächste Badeseen mit aktueller Probe (≤30 Tage), EU-Grenzwerte
+  let tMikro = null, mikroReason = '';
+  const measured = lakes.filter(l => l.ecoli != null);
+  if (measured.length) {
+    const ages = measured.map(l => {
+      const ec = l.ecoli, en = l.enterok ?? 0;
+      let c = 'gruen';
+      if (l.badeverbot || ec > 900 || en > 370) c = 'rot';
+      else if (ec > 500 || en > 200) c = 'gelb';
+      return { l, c };
+    });
+    const worst = ages.reduce((a, b) => COLOR_SCORE[b.c] > COLOR_SCORE[a.c] ? b : a);
+    tMikro = worst.c;
+    if (worst.c !== 'gruen') {
+      mikroReason = worst.l.badeverbot
+        ? `${worst.l.name}: Badeverbot/Sperrung`
+        : `${worst.l.name}: E.coli ${worst.l.ecoli}, Enterok. ${worst.l.enterok ?? '–'} (${fmtDate(worst.l.probeDatum)})`;
+    }
+  }
+  setDot('ind-mikro', tMikro || 'grau');
+
+  // T3 Chemie: keine Live-Quelle → grau, nicht in Aggregation
+  setDot('ind-chemie', 'grau');
+
+  // T4 Niederschlag
+  let tRegen = null, regenReason = '';
+  if (dwd?.ok && dwd.data?.length) {
+    const sum = h => dwd.data.slice(-h).reduce((s, x) => s + (x.mm || 0), 0);
+    const t = rainTrigger(sum(6), sum(24), sum(72));
+    tRegen = t.cls;
+    if (t.cls !== 'gruen') regenReason = `Niederschlag ${t.label} (${sum(24).toFixed(0)} mm/24h)`;
+  }
+  setDot('ind-regen', tRegen || 'grau');
+
+  // T5 EU-Status nächste Badestelle (<15 km)
+  let tEu = null;
+  const nearLake = lakes.filter(l => l.distKm != null && l.distKm <= 15).map(l => euColor(l.euQualitaet)).filter(Boolean);
+  if (nearLake.length) tEu = nearLake.reduce((a, b) => COLOR_SCORE[b] > COLOR_SCORE[a] ? b : a);
+  else { const any = lakes.map(l => euColor(l.euQualitaet)).filter(Boolean); if (any.length) tEu = any[0]; }
+  setDot('ind-eu', tEu || 'grau');
+
+  // Aggregation
+  const inds = { pegel: tPegel, mikro: tMikro, regen: tRegen, eu: tEu };
+  let score = 0, weight = 0, anyRed = false;
+  for (const k in inds) {
+    if (!inds[k]) continue;
+    score += COLOR_SCORE[inds[k]] * AMPEL_WEIGHTS[k];
+    weight += AMPEL_WEIGHTS[k];
+    if (inds[k] === 'rot') anyRed = true;
+  }
+  let cls, label;
+  if (!weight) { cls = 'grau'; label = 'Keine Daten'; }
+  else if (anyRed) { cls = 'rot'; label = 'Erhöhtes Risiko'; }
+  else if (score / weight > 0.3) { cls = 'gelb'; label = 'Mässig'; }
+  else { cls = 'gruen'; label = 'Gut'; }
+
+  const circle = document.getElementById('ampel-circle');
+  if (circle) circle.className = 'ampel-circle ' + cls;
+  const txt = document.getElementById('ampel-text');
+  if (txt) { txt.className = 'ampel-status-text ' + cls; txt.textContent = label; }
+  const lbl = document.getElementById('ampel-label');
+  if (lbl) lbl.textContent = `Gesamt-Wasserqualität · ${_locName || ''} · ${radiusKm} km Umkreis`;
+
+  const reasonEl = document.getElementById('ampel-reason');
+  if (reasonEl) {
+    const reasons = [mikroReason, regenReason].filter(Boolean);
+    reasonEl.textContent = reasons.length ? reasons.join(' · ')
+      : (cls === 'gruen' ? 'Alle verfügbaren Indikatoren unauffällig.' : 'Bewertung aus verfügbaren Messwerten.');
+  }
+  const bv = lakes.filter(l => l.badeverbot);
+  const bvEl = document.getElementById('ampel-badeverbot');
+  if (bvEl) bvEl.textContent = bv.length ? `⚠ ${bv.length} Badeverbot/Warnung im Umkreis` : 'Kein Badeverbot aktiv';
+}
+
+// ── CHARTS ─────────────────────────────────────────────────────────────────
+async function initCharts(tab) {
+  if (chartsInitialized[tab]) return;
+  chartsInitialized[tab] = true;
+
+  if (tab === 'pegel') {
+    chartMsg('pegelChart', 'Pegelverlauf wird geladen…');
+    chartMsg('pegel2Chart', 'Pegelverlauf wird geladen…');
+    const po = await pegelonlineNearby(_currentLat, _currentLon, _radius, 2);
+
+    const drawPO = async (cid, titleId, subId, st, color) => {
+      if (!st) {
+        const near = _pegelStations.find(s => s.w != null);
+        chartMsg(cid, near
+          ? `Kein Bundeswasserstraßen-Pegel im Umkreis. Nächster Pegel ${near.name}: ${near.w} ${near.wUnit} (HVZ, nur Momentanwert)`
+          : 'Kein Pegel mit 7-Tage-Verlauf im Umkreis');
+        const t = document.getElementById(titleId); if (t) t.textContent = 'Pegelverlauf · letzte 7 Tage';
+        const s = document.getElementById(subId); if (s) s.textContent = '—';
+        return;
+      }
+      const t = document.getElementById(titleId);
+      if (t) t.textContent = `${st.longname || st.shortname} · letzte 7 Tage`;
+      const s = document.getElementById(subId);
+      if (s) s.textContent = `${st.water?.longname || ''} · PEGELONLINE`;
+      const pts = await pegelonlineHistory(st.uuid);
+      if (!pts?.length) { chartMsg(cid, 'Zeitreihe nicht verfügbar'); return; }
+      const el = document.getElementById(cid); if (!el) return;
+      const ex = Chart.getChart(el); if (ex) ex.destroy();
+      new Chart(el, {
+        type: 'line',
+        data: {
+          labels: pts.map(p => { const d = new Date(p.dt); return d.getHours() === 0 ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : ''; }),
+          datasets: [{ label: 'Wasserstand (cm)', data: pts.map(p => p.w), borderColor: color, backgroundColor: color + '22', fill: true, tension: .35, pointRadius: 0, borderWidth: 2 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + ' cm' } } },
+          scales: {
+            x: { grid: { color: GC }, ticks: { color: TC, font: defaultFont, maxTicksLimit: 8 } },
+            y: { grid: { color: GC }, ticks: { color: TC, font: defaultFont, callback: v => v + ' cm' }, min: Math.max(0, Math.min(...pts.map(p => p.w)) - 15) }
+          }
+        }
+      });
+    };
+    await drawPO('pegelChart', 'pegelChart-title', 'pegelChart-sub', po[0], '#0284c7');
+    await drawPO('pegel2Chart', 'pegel2Chart-title', 'pegel2Chart-sub', po[1], '#7c3aed');
+  }
+
+  if (tab === 'badegewaesser') {
+    const lakes = _currentLakes.filter(l => l.ecoli != null);
+    const sub = document.getElementById('ecoli-sub');
+    if (!lakes.length) {
+      if (sub) sub.textContent = 'Keine aktuellen Messwerte im Umkreis';
+      chartMsg('ecoliChart', 'Keine aktuellen E.coli-Messwerte im Umkreis'); return;
+    }
+    if (sub) sub.textContent = `${lakes.length} Badegewässer mit aktueller Probe`;
+    const el = document.getElementById('ecoliChart'); if (!el) return;
+    const ex = Chart.getChart(el); if (ex) ex.destroy();
+    const colors = lakes.map(l => badeStatus(l).hex);
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: lakes.map(l => l.name.replace(/ \((Unt|Ob)\.?\)/, '').slice(0, 22)),
+        datasets: [{ label: 'E. coli (KBE/100ml)', data: lakes.map(l => l.ecoli), backgroundColor: colors.map(c => c + 'bb'), borderColor: colors, borderWidth: 1, borderRadius: 5 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + ' KBE/100ml — ' + badeStatus(lakes[c.dataIndex]).label } } },
+        scales: {
+          x: { grid: { color: GC }, ticks: { color: TC, font: defaultFont } },
+          y: { grid: { color: GC }, ticks: { color: TC, font: defaultFont }, min: 0, afterDataLimits(s) { s.max = Math.max(s.max, 200); } }
+        }
+      }
+    });
+  }
+
+  if (tab === 'niederschlag') {
+    const dwd = _dwd;
+    if (!dwd?.ok || !dwd.data?.length) { chartMsg('regen72Chart', 'DWD-Daten nicht verfügbar'); return; }
+    const last72 = dwd.data.slice(-72);
+    const rain = last72.map(p => +(p.mm ?? 0).toFixed(1));
+    const labels = last72.map(p => { const d = new Date(p.dt); return d.getHours() % 6 === 0 ? d.getHours() + ':00' : ''; });
+
+    const subEl = document.getElementById('regen72-sub');
+    const po = await pegelonlineNearby(_currentLat, _currentLon, _radius, 1);
+    let pegelVals = null, pegelLabel = 'Pegel (cm)';
+    if (po[0]) {
+      const pts = await pegelonlineHistory(po[0].uuid);
+      if (pts?.length) {
+        // auf die DWD-Zeitstempel mappen (nächster Messpunkt je Stunde)
+        pegelVals = last72.map(d => {
+          const t = new Date(d.dt).getTime();
+          let best = null, bd = Infinity;
+          for (const p of pts) { const dd = Math.abs(new Date(p.dt).getTime() - t); if (dd < bd) { bd = dd; best = p.w; } }
+          return best;
+        });
+        pegelLabel = `${po[0].shortname} (cm)`;
+        if (subEl) subEl.textContent = `DWD ${dwd.station?.name || ''} + Pegel ${po[0].shortname}`;
+      }
+    }
+    if (!pegelVals && subEl) subEl.textContent = `DWD ${dwd.station?.name || ''} · Niederschlag`;
+
+    const el = document.getElementById('regen72Chart'); if (!el) return;
+    const ex = Chart.getChart(el); if (ex) ex.destroy();
+    const datasets = [{ type: 'bar', label: 'Niederschlag (mm/h)', data: rain, backgroundColor: 'rgba(56,189,248,.65)', borderColor: 'rgba(2,132,199,.8)', borderWidth: 1, yAxisID: 'yRain' }];
+    if (pegelVals) datasets.push({ type: 'line', label: pegelLabel, data: pegelVals, borderColor: '#0369a1', backgroundColor: 'transparent', tension: .4, pointRadius: 0, borderWidth: 2, yAxisID: 'yPegel', spanGaps: true });
+    new Chart(el, {
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { font: defaultFont, color: TC, boxWidth: 12, boxHeight: 12 } } },
+        scales: {
+          x: { grid: { color: GC }, ticks: { color: TC, font: defaultFont, maxTicksLimit: 10 } },
+          yRain: { position: 'right', grid: { display: false }, ticks: { color: '#38bdf8', font: defaultFont, callback: v => v + 'mm' }, min: 0 },
+          yPegel: { display: !!pegelVals, position: 'left', grid: { color: GC }, ticks: { color: '#0369a1', font: defaultFont, callback: v => v + 'cm' } }
+        }
+      }
+    });
+  }
+}
+
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab') || 'uebersicht';
+  // q hat Vorrang; plz für Abwärtskompatibilität
+  const q = params.get('q') || params.get('plz') || '71665';
+  const radius = params.get('radius') || '20';
+  document.getElementById('plzInput').value = q;
+  document.getElementById('radiusInput').value = radius;
+
+  document.getElementById('radiusInput').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+  initAutocomplete();
+
+  setTimeout(() => {
+    initMap();
+    search();
+  }, 100);
+
+  if (tab !== 'uebersicht') setTab(tab);
+});
+</script>
+</body>
+</html>

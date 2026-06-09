@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "api/*.js",   "use": "@vercel/node"   }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/badegewaesser", "status": 301, "headers": { "Location": "/?tab=badegewaesser" } },
+    { "src": "/pegel",         "status": 301, "headers": { "Location": "/?tab=pegel" } },
+    { "src": "/chemie",        "status": 301, "headers": { "Location": "/?tab=chemie" } },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options",        "value": "SAMEORIGIN" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=900, stale-while-revalidate=1800" }
+      ]
+    }
+  ]
+}
