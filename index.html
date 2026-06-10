@@ -1355,37 +1355,38 @@ async function fetchBadegewaesser(lat, lon, radiusKm) {
     return [null, null];
   }
 
-  // Client-seitiger Umkreisfilter (nötig wenn kein Spatial-Filter angewendet wurde)
-  const nearby = stations.features.filter(f => {
+  // ALLE Stationen behalten (für die Übersichtskarte). Distanz je Station berechnen.
+  // Messwerte nur für die Stationen im Umkreis nachladen (spart eine riesige IN-Abfrage).
+  const all = stations.features.map(f => {
     const [fLat, fLon] = getCoords(f);
-    if (fLat === null) return true; // keine Koordinaten → trotzdem zeigen
-    return haversine(lat, lon, fLat, fLon) <= radiusKm;
+    const distKm = fLat !== null ? Math.round(haversine(lat, lon, fLat, fLon)) : null;
+    return { f, fLat, fLon, distKm };
   });
-  if (!nearby.length) return [];
-
-  const idsStr = nearby.map(f => `'${f.attributes.BW_ID}'`).join(',');
-  const mParams = new URLSearchParams({
-    where: `BW_ID IN (${idsStr})`,
-    outFields: 'BW_ID,PROBE_DATUM,MESS_COLI,MESS_ENTEROK,TEMPERATUR',
-    orderByFields: 'PROBE_DATUM DESC', resultRecordCount: '500', f: 'json'
-  });
-  const mRes = await fetch(`${BASE}/Gesamt_UVB_Messdaten_Tabelle/FeatureServer/0/query?${mParams}`);
-  const mData = await mRes.json();
+  const nearby = all.filter(x => x.distKm !== null && x.distKm <= radiusKm);
 
   const latest = {};
-  for (const f of (mData.features || [])) {
-    const a = f.attributes;
-    if (!latest[a.BW_ID]) latest[a.BW_ID] = a;
+  if (nearby.length) {
+    const idsStr = nearby.map(x => `'${x.f.attributes.BW_ID}'`).join(',');
+    const mParams = new URLSearchParams({
+      where: `BW_ID IN (${idsStr})`,
+      outFields: 'BW_ID,PROBE_DATUM,MESS_COLI,MESS_ENTEROK,TEMPERATUR',
+      orderByFields: 'PROBE_DATUM DESC', resultRecordCount: '500', f: 'json'
+    });
+    const mRes = await fetch(`${BASE}/Gesamt_UVB_Messdaten_Tabelle/FeatureServer/0/query?${mParams}`);
+    const mData = await mRes.json();
+    for (const f of (mData.features || [])) {
+      const a = f.attributes;
+      if (!latest[a.BW_ID]) latest[a.BW_ID] = a;
+    }
   }
 
-  return nearby.map(f => {
+  return all.map(({ f, fLat, fLon, distKm }) => {
     const a = f.attributes, m = latest[a.BW_ID] || {};
-    const [fLat, fLon] = getCoords(f);
     return {
       id: a.BW_ID,
       name: a.BADEGEWAESSERNAME || a.GEMEINDE_NAME || a.BW_ID,
       lat: fLat, lon: fLon,
-      distKm: fLat !== null ? Math.round(haversine(lat, lon, fLat, fLon)) : null,
+      distKm,
       euQualitaet: a.QUALITAET_LAUT_EU_2021 || '',
       // AKTUELL_BADEVERBOT: 1=ohne Einschränkung, 2=es liegt eine Meldung vor (heterogen).
       // Echtes Verbot/Sperrung nur per Meldungstext erkennen (z.B. „aufgehoben" ausschließen).
@@ -1511,7 +1512,8 @@ function updateMapLakes(lakes) {
 // ── SEARCH / ORCHESTRIERUNG ──────────────────────────────────────────────────
 let _currentLat = 48.93, _currentLon = 8.96;
 let _radius = 20, _locName = '';
-let _pegelStations = [];
+let _pegelStations = [], _allPegel = [];
+let _currentLakes = [], _allLakes = [];
 let _dwd = null;
 let _niz = null;
 
@@ -1541,26 +1543,30 @@ async function search() {
     const sub = document.getElementById('header-sub');
     if (sub) sub.textContent = `${loc.name} · ${radius} km Umkreis`;
     const mf = document.getElementById('map-footer');
-    if (mf) mf.innerHTML = `🗺️ Stationen im ${radius}-km-Umkreis um ${escapeHtml(loc.name)} &nbsp;·&nbsp; <a href="https://www.openstreetmap.org" target="_blank">© OpenStreetMap</a>`;
+    if (mf) mf.innerHTML = `🗺️ Alle Pegel- &amp; Badegewässer-Stationen in BW · Fokus ${radius} km um ${escapeHtml(loc.name)} (zum Vergrößern zoomen) &nbsp;·&nbsp; <a href="https://www.openstreetmap.org" target="_blank">© OpenStreetMap</a>`;
 
     if (_map) updateMapRadius(loc.lat, loc.lon, radius);
     if (!inBW(loc.lat, loc.lon))
       showToast('Hinweis: Ort liegt außerhalb Baden-Württembergs – Datenlage ggf. unvollständig.', 'info');
 
     // Alle Quellen parallel laden (einzelne Fehler isolieren)
-    const [lakes, pegel, dwd, niz] = await Promise.all([
+    const [allLakes, allPegel, dwd, niz] = await Promise.all([
       fetchBadegewaesser(loc.lat, loc.lon, radius).catch(e => { console.warn('Bade:', e); return []; }),
-      loadPegelLive(loc.lat, loc.lon, radius),
+      loadPegelLive(loc.lat, loc.lon),
       loadDWDLive(loc.lat, loc.lon),
       loadNiz(loc.lat, loc.lon, radius),
     ]);
-    _currentLakes = lakes; _pegelStations = pegel; _dwd = dwd; _niz = niz;
+    // Karte = ALLE Stationen in BW; Tabellen/Kacheln/Ampel = nur im Radius.
+    const lakes = allLakes.filter(l => l.distKm != null && l.distKm <= radius);
+    const pegel = allPegel.filter(s => s.distKm != null && s.distKm <= radius);
+    _currentLakes = lakes; _allLakes = allLakes;
+    _pegelStations = pegel; _allPegel = allPegel; _dwd = dwd; _niz = niz;
 
     renderBadegewaesser(lakes, radius);
     renderPegelTable(pegel, radius);
     renderDWDStats(dwd);
     renderChemie(niz);
-    if (_map) { updateMapLakes(lakes); updateMapPegel(pegel); }
+    if (_map) { updateMapLakes(allLakes); updateMapPegel(allPegel); }
     updateOverviewStats(pegel, dwd);
     updateAmpel(lakes, pegel, dwd, niz, radius);
     updateFooterStand();
@@ -1787,13 +1793,16 @@ function normalizeHistory(raw) {
 }
 
 // ── LIVE LOADERS ───────────────────────────────────────────────────────────
-// HVZ-Pegel (nächste Stationen) über eigenen Proxy.
-async function loadPegelLive(lat, lon, radiusKm) {
+// HVZ-Pegel: ALLE BW-Stationen holen (für die Übersichtskarte), Distanz zum
+// Suchort clientseitig ergänzen. Tabellen/Ampel filtern später nach Radius.
+async function loadPegelLive(lat, lon) {
   try {
-    const r = await fetch(`${proxyUrl('pegel')}?lat=${lat}&lon=${lon}&radius=${radiusKm}&limit=10`);
+    const r = await fetch(`${proxyUrl('pegel')}?limit=1000`); // ohne lat/lon → komplette Liste
     if (!r.ok) throw new Error('Pegel ' + r.status);
     const d = await r.json();
-    return d.ok && Array.isArray(d.stations) ? d.stations : [];
+    const all = d.ok && Array.isArray(d.stations) ? d.stations : [];
+    return all.map(s => ({ ...s, distKm: Math.round(haversine(lat, lon, s.lat, s.lon) * 10) / 10 }))
+              .sort((a, b) => a.distKm - b.distKm);
   } catch (e) { console.warn('Pegel:', e); return []; }
 }
 
