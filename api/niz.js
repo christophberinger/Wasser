@@ -20,7 +20,17 @@ export default async function handler(req, res) {
   const radiusKm = Math.min(parseFloat(req.query.radius) || 25, 80);
 
   try {
-    if (!isFinite(lat) || !isFinite(lon)) throw new Error('lat/lon erforderlich');
+    if (req.query.list) {
+      const stations = await getList();
+      res.status(200).json({ ok: true, stations: stations.map(s => ({ id: s.id, name: s.label || s.title || String(s.id), lat: s.lat, lon: s.lon })) });
+      return;
+    }
+    if (req.query.id) {
+      const detail = await fetchStation(req.query.id);
+      res.status(200).json({ ok: true, ...detail });
+      return;
+    }
+    if (!isFinite(lat) || !isFinite(lon)) throw new Error('lat/lon, id oder list erforderlich');
     const stations = await getList();
     if (!stations.length) throw new Error('NIZ-Stationsliste leer');
 

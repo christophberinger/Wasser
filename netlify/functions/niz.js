@@ -31,7 +31,19 @@ export async function handler(event) {
   };
 
   try {
-    if (!isFinite(lat) || !isFinite(lon)) throw new Error('lat/lon erforderlich');
+    // Modus 1: komplette Stationsliste (für Karten-Marker)
+    if (q.list) {
+      const stations = await getList();
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, stations: stations.map(s => ({ id: s.id, name: s.label || s.title || String(s.id), lat: s.lat, lon: s.lon })) }) };
+    }
+    // Modus 2: Detail einer einzelnen Station (für Sidebar)
+    if (q.id) {
+      const detail = await fetchStation(q.id);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...detail }) };
+    }
+
+    // Modus 3: nächste vollständige Gütemessstation (Ampel / Abwärtskompatibilität)
+    if (!isFinite(lat) || !isFinite(lon)) throw new Error('lat/lon, id oder list erforderlich');
     const stations = await getList();
     if (!stations.length) throw new Error('NIZ-Stationsliste leer');
 
