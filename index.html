@@ -791,6 +791,7 @@
   /* Marker-Icons */
   .mk { border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); box-sizing: border-box; }
   .mk-pegel { width: 17px; height: 17px; background: #2563eb; border-radius: 3px; transform: rotate(45deg); }
+  .mk-wsv { width: 18px; height: 18px; background: #4f46e5; border-radius: 3px; transform: rotate(45deg); box-shadow: inset 0 0 0 2px rgba(255,255,255,.85), 0 1px 4px rgba(0,0,0,.4); }
   .mk-guete { width: 20px; height: 20px; background: #0d9488; border-radius: 5px; transform: rotate(45deg); display: flex; align-items: center; justify-content: center; }
   .mk-guete::after { content: '🧪'; transform: rotate(-45deg); font-size: 10px; }
   .mk-bade { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
@@ -865,7 +866,8 @@
 
   <!-- Legende -->
   <div class="map-legend sc-card">
-    <div class="li"><span style="width:12px;height:12px;background:#2563eb;border:1.5px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.3);transform:rotate(45deg);display:inline-block"></span>&nbsp;&nbsp;Pegel</div>
+    <div class="li"><span style="width:12px;height:12px;background:#2563eb;border:1.5px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.3);transform:rotate(45deg);display:inline-block"></span>&nbsp;&nbsp;Pegel (Land)</div>
+    <div class="li"><span style="width:12px;height:12px;background:#4f46e5;border:1.5px solid #fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transform:rotate(45deg);display:inline-block"></span>&nbsp;&nbsp;Bundeswasserstr. (WSV)</div>
     <div class="li"><span style="width:13px;height:13px;background:#0d9488;border:1.5px solid #fff;border-radius:3px;transform:rotate(45deg);display:inline-block"></span>&nbsp;&nbsp;Güte / Chemie</div>
     <div class="li"><span style="width:13px;height:13px;background:#22c55e;border:1.5px solid #fff;border-radius:50%;display:inline-block"></span>&nbsp;Badegewässer</div>
   </div>
@@ -924,7 +926,7 @@ function proxyUrl(name) {
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let _currentLat = 48.93, _currentLon = 8.96, _radius = 20, _locName = '';
-let _allPegel = [], _allGuete = [], _allLakes = [], _dwd = null;
+let _allPegel = [], _allWsv = [], _allGuete = [], _allLakes = [], _dwd = null;
 
 // ── GEOCODING / FREITEXTSUCHE ─────────────────────────────────────────────────
 const BW_VIEWBOX = '7.45,49.85,10.55,47.50';
@@ -1093,15 +1095,29 @@ async function pegelonlineNearby(lat, lon, radiusKm, limit = 1) {
     return (Array.isArray(arr)?arr:[]).filter(s => (s.timeseries||[]).some(t => t.shortname==='W')).slice(0, limit);
   } catch { return []; }
 }
-async function pegelonlineHistory(uuid) {
-  try { const r = await fetch(`https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/${uuid}/W/measurements.json?start=P7D`);
+async function pegelonlineHistory(uuid, param = 'W') {
+  try { const r = await fetch(`https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/${uuid}/${param}/measurements.json?start=P7D`);
     if (!r.ok) return null; const arr = await r.json();
     return Array.isArray(arr)&&arr.length ? arr.map(p => ({ dt:p.timestamp, w:+p.value })) : null; } catch { return null; }
+}
+// Alle PEGELONLINE-Stationen (WSV/Bund) in der BW-Region inkl. Zeitreihen-Übersicht.
+async function loadWsvStations(lat, lon) {
+  try {
+    const r = await fetch('https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json?latitude=48.7&longitude=9.2&radius=180&includeTimeseries=true&includeCurrentMeasurement=true');
+    if (!r.ok) throw 0;
+    const arr = await r.json();
+    return (Array.isArray(arr)?arr:[])
+      .filter(s => isFinite(s.latitude) && isFinite(s.longitude) && inBW(s.latitude, s.longitude))
+      .map(s => ({ uuid:s.uuid, name:(s.longname||s.shortname||'').replace(/\b(\w)(\w*)/g,(m,a,b)=>a+b.toLowerCase()),
+        water:s.water?.longname||s.water?.shortname||'', lat:s.latitude, lon:s.longitude,
+        ts:s.timeseries||[], distKm: Math.round(haversine(lat,lon,s.latitude,s.longitude)*10)/10 }))
+      .sort((a,b)=>a.distKm-b.distKm);
+  } catch (e) { console.warn('WSV:', e); return []; }
 }
 
 // ── KARTE ────────────────────────────────────────────────────────────────────
 let _map = null, _radiusLayer = null;
-let _pegelLayer = null, _gueteLayer = null, _badeLayer = null;
+let _pegelLayer = null, _wsvLayer = null, _gueteLayer = null, _badeLayer = null;
 function initMap() {
   if (_map) return;
   _map = L.map('map', { zoomControl: true, scrollWheelZoom: true }).setView([48.6, 9.0], 8);
@@ -1109,6 +1125,7 @@ function initMap() {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 19,
   }).addTo(_map);
   _pegelLayer = L.layerGroup().addTo(_map);
+  _wsvLayer   = L.layerGroup().addTo(_map);
   _gueteLayer = L.layerGroup().addTo(_map);
   _badeLayer  = L.layerGroup().addTo(_map);
   setTimeout(() => _map.invalidateSize(), 200);
@@ -1125,6 +1142,12 @@ function renderMapPegel(stations) {
   stations.forEach(s => { if (!isFinite(s.lat)||!isFinite(s.lon)) return;
     L.marker([s.lat,s.lon], { icon: divIcon('<div class="mk mk-pegel"></div>', 17) })
       .addTo(_pegelLayer).on('click', () => openStation('pegel', s)); });
+}
+function renderMapWsv(stations) {
+  _wsvLayer.clearLayers();
+  stations.forEach(s => { if (!isFinite(s.lat)||!isFinite(s.lon)) return;
+    L.marker([s.lat,s.lon], { icon: divIcon('<div class="mk mk-wsv"></div>', 18) })
+      .addTo(_wsvLayer).on('click', () => openStation('wsv', s)); });
 }
 function renderMapGuete(stations) {
   _gueteLayer.clearLayers();
@@ -1214,6 +1237,41 @@ async function openStation(type, s) {
     if (s.ecoli == null) html += `<div class="sb-section"><p class="sc-muted" style="font-size:12.5px">Keine aktuelle Messung im gewählten Umkreis geladen – Marker zeigt die EU-Einstufung. Suche näher an dieser Stelle für aktuelle Laborwerte.</p></div>`;
     html += `<div class="sb-foot">Datenquelle: LGL, <a href="https://www.lgl-bw.de" target="_blank">lgl-bw.de</a>, dl-de/by-2-0 · <a href="https://badegewaesserkarte.landbw.de" target="_blank">Offizielle Badegewässerkarte BW</a></div>`;
     openSidebar('🏊', s.name, s.distKm!=null?`${s.distKm} km · LGL Badegewässer`:'LGL Badegewässer', html);
+    return;
+  }
+
+  if (type === 'wsv') {
+    // PEGELONLINE-Parameter: shortname → [Label, Einheit, Farbe]
+    const PM = { W:['Wasserstand','cm','#4f46e5'], Q:['Abfluss','m³/s','#2563eb'], WT:['Wassertemperatur','°C','#0284c7'],
+                 O2:['Sauerstoff','mg/l','#16a34a'], PH:['pH-Wert','','#a855f7'], LT:['Lufttemperatur','°C','#f59e0b'], LF:['Leitfähigkeit','µS/cm','#f59e0b'] };
+    const order = ['W','Q','WT','O2','PH','LT','LF'];
+    const tsByName = {}; (s.ts||[]).forEach(t => tsByName[t.shortname] = t);
+    const present = order.filter(k => tsByName[k]);
+    const kpis = present.map(k => {
+      const t = tsByName[k], [label,, ] = PM[k] || [k];
+      const cm = t.currentMeasurement;
+      const unit = (t.unit||'').replace(/^--$/, '');
+      let v = cm && cm.value!=null ? cm.value : '–';
+      if (k==='O2' && typeof v==='number') { const o=o2Color(v); return `<div class="sb-kpi"><div class="k">${label} · <span class="sc-badge ${o.cls}" style="padding:0 7px">${o.icon} ${o.label}</span></div><div class="v">${v} <span>${escapeHtml(unit)}</span></div></div>`; }
+      return kpi(label, v, unit);
+    }).join('');
+    let html = `<div class="sb-section"><h3>Aktuelle Werte</h3><div class="sb-kpis">${kpis}</div></div>`;
+    html += `<div class="sb-section"><h3>Verläufe · 7 Tage</h3><div id="sb-charts"></div></div>`;
+    html += `<div class="sb-foot">Datenquelle: PEGELONLINE – Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV) · <a href="https://www.pegelonline.wsv.de" target="_blank">pegelonline.wsv.de</a></div>`;
+    openSidebar('🌊', s.name, `${s.water||'Bundeswasserstraße'} · ${s.distKm} km · WSV`, html);
+    const cont = document.getElementById('sb-charts');
+    for (const k of present) {
+      const t = tsByName[k], [label, unit, color] = PM[k] || [k,'','#64748b'];
+      const cid = `sbw-${k}`;
+      cont.insertAdjacentHTML('beforeend', `<div class="sb-chart"><div class="ct">${label}</div><div class="cs" id="${cid}-sub">lädt…</div><div class="chart-wrap"><canvas id="${cid}"></canvas></div></div>`);
+      const pts = await pegelonlineHistory(s.uuid, k);
+      const sub = document.getElementById(`${cid}-sub`);
+      if (pts?.length) {
+        const vals = pts.map(p=>p.w).filter(v=>isFinite(v));
+        if (sub && vals.length) sub.textContent = `aktuell ${vals[vals.length-1]}${unit?' '+unit:''} · Min ${Math.min(...vals)} · Max ${Math.max(...vals)}`;
+        drawSeriesChart(cid, pts.map(p=>p.dt), pts.map(p=>p.w), unit, color, (k==='PH')?{}:{min:0});
+      } else if (sub) sub.textContent = 'Zeitreihe nicht verfügbar';
+    }
     return;
   }
 }
@@ -1307,15 +1365,16 @@ async function search() {
     if (_map) updateMapRadius(loc.lat, loc.lon, radius);
     if (!inBW(loc.lat, loc.lon)) showToast('Hinweis: Ort liegt außerhalb Baden-Württembergs – Datenlage ggf. unvollständig.', 'info');
 
-    const [allLakes, allPegel, gueteList, dwd] = await Promise.all([
+    const [allLakes, allPegel, gueteList, wsvList, dwd] = await Promise.all([
       fetchBadegewaesser(loc.lat, loc.lon, radius).catch(()=>[]),
       loadPegelAll(loc.lat, loc.lon),
       loadGueteList(loc.lat, loc.lon),
+      loadWsvStations(loc.lat, loc.lon),
       loadDWDLive(loc.lat, loc.lon),
     ]);
-    _allLakes=allLakes; _allPegel=allPegel; _allGuete=gueteList; _dwd=dwd;
+    _allLakes=allLakes; _allPegel=allPegel; _allGuete=gueteList; _allWsv=wsvList; _dwd=dwd;
 
-    renderMapPegel(allPegel); renderMapGuete(gueteList); renderMapLakes(allLakes);
+    renderMapPegel(allPegel); renderMapWsv(wsvList); renderMapGuete(gueteList); renderMapLakes(allLakes);
 
     // Radius-Teilmengen für die Ampel
     const lakesIn = allLakes.filter(l=>l.distKm!=null&&l.distKm<=radius);
@@ -1324,7 +1383,7 @@ async function search() {
     const gueteDetail = nearGuete ? await loadGueteDetail(nearGuete.id) : null;
     updateAmpel(lakesIn, pegelIn, dwd, gueteDetail, radius);
 
-    showToast(`${allPegel.length} Pegel · ${gueteList.length} Güte · ${allLakes.length} Badegewässer in BW`, 'success');
+    showToast(`${allPegel.length} Pegel · ${wsvList.length} WSV · ${gueteList.length} Güte · ${allLakes.length} Badegewässer`, 'success');
   } catch (e) { console.error(e); showToast('Fehler: ' + e.message, 'error'); }
   finally { btn.textContent = old; btn.disabled = false; }
 }
